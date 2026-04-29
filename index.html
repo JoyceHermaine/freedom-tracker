@@ -2367,17 +2367,32 @@ function renderMonthlyChart() {
 
 
 // ============================================================
-// DATA RECOVERY — Pre-fill known income and history from Apr 29
-// Only runs if incomeLog is empty (after a data loss)
+// DATA RECOVERY — Deduplicate and restore known data
 // ============================================================
 function recoverKnownData() {
-  if ((state.incomeLog || []).length > 0) return; // already has data, skip
-  if ((state.paymentHistory || []).length > 0) return;
+  // Deduplicate incomeLog by source+amount+name combo
+  const seen = new Set();
+  const deduped = (state.incomeLog || []).filter(e => {
+    const key = (e.source||'') + '|' + (e.amount||0) + '|' + (e.name||'');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
+  // Deduplicate paymentHistory too
+  const seenPH = new Set();
+  const dedupedPH = (state.paymentHistory || []).filter(h => {
+    const key = (h.description||'') + '|' + (h.amount||0) + '|' + (h.name||'') + '|' + (h.date||'');
+    if (seenPH.has(key)) return false;
+    seenPH.add(key);
+    return true;
+  });
+
+  // Known income from Apr 29 session
   const knownIncome = [
     { id:'rec_1', source:'Joyce Salary Remaining - BPI', amount:39577, name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
     { id:'rec_2', source:'Joyce Salary Remaining - Security Bank', amount:27570, name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
-    { id:'rec_3', source:'To Balance: Joyce Food Panda Food Allowance', amount:639, name:'Joyce', date:'Apr 29, 2026', time:'03:35 PM' },
+    { id:'rec_3', source:'To Balance: Food Allowance Adjustment', amount:639, name:'Joyce', date:'Apr 29, 2026', time:'03:35 PM' },
     { id:'rec_4', source:'Joyce Maribank', amount:140, name:'Joyce', date:'Apr 29, 2026', time:'04:30 PM' },
     { id:'rec_5', source:'Emil BPI Remaining', amount:713, name:'Emil', date:'Apr 29, 2026', time:'05:03 PM' },
     { id:'rec_6', source:'Emil Maribank remaining', amount:464, name:'Emil', date:'Apr 29, 2026', time:'05:04 PM' },
@@ -2386,25 +2401,55 @@ function recoverKnownData() {
     { id:'rec_9', source:'Emil Cash On Hand', amount:10600, name:'Emil', date:'Apr 29, 2026', time:'05:29 PM' },
   ];
 
-  state.incomeLog = knownIncome;
+  // Known expenses lost in data loss
+  const knownExpenses = [
+    { id:'rec_exp1', emoji:'💰', description:'Food expense: FoodPanda', amount:639, type:'expense', ref:'food', name:'Joyce', date:'Apr 29, 2026', time:'10:00 AM' },
+    { id:'rec_exp2', emoji:'💸', description:'Paid: Internet (own)', amount:1909, type:'bill', ref:'b19', name:'Joyce', date:'Apr 29, 2026', time:'03:00 PM' },
+    { id:'rec_exp3', emoji:'💸', description:'Paid: Security Bank CC', amount:3500, type:'debtpay', ref:'secbank', name:'Joyce', date:'Apr 29, 2026', time:'03:00 PM' },
+  ];
 
-  // Also log them in payment history
-  state.paymentHistory = knownIncome.map(e => ({
-    id: 'ph_' + e.id,
-    emoji: '💰',
-    description: 'Income: ' + e.source,
-    amount: e.amount,
-    type: 'income',
-    ref: e.id,
-    name: e.name,
-    date: e.date,
-    time: e.time,
-  }));
+  // Merge: use deduped existing + add any known ones not already present
+  const existingSources = new Set(deduped.map(e => e.source + '|' + e.amount));
+  const toAdd = knownIncome.filter(e => !existingSources.has(e.source + '|' + e.amount));
+  state.incomeLog = [...deduped, ...toAdd];
 
+  // Merge payment history
+  const existingPHDesc = new Set(dedupedPH.map(h => (h.description||'') + '|' + (h.amount||0)));
+  const phToAdd = [
+    ...toAdd.map(e => ({
+      id: 'ph_' + e.id,
+      emoji: '💰',
+      description: 'Income: ' + e.source,
+      amount: e.amount,
+      type: 'income',
+      ref: e.id,
+      name: e.name,
+      date: e.date,
+      time: e.time,
+    })),
+    ...knownExpenses.filter(e => !existingPHDesc.has(e.description + '|' + e.amount)),
+  ];
+  state.paymentHistory = [...dedupedPH, ...phToAdd];
+
+  // Update debt balance for SecBank payment
+  const secbank = state.debts.find(d => d.id === 'secbank');
+  if (secbank && secbank.balance > 34779) {
+    secbank.balance = Math.max(0, secbank.balance - 3500);
+  }
+
+  // Update food spent
+  state.foodSpent = Math.max(state.foodSpent || 0, 639);
+
+  // Update totalPaid
+  state.totalPaid = state.paymentHistory
+    .filter(h => ['bill','debtpay'].includes(h.type))
+    .reduce((s,h) => s + (h.amount||0), 0);
+
+  localStorage.removeItem('je_recovered'); // clear flag
   saveLocalOnly();
   pushToCloud();
   renderAll();
-  showToast('✅ Data recovered! Income restored from session records. 🌸');
+  showToast('✅ Data recovered and deduplicated! 🌸');
 }
 function renderAll() {
   renderHome();
@@ -3495,7 +3540,7 @@ renderIncome();
 renderOtherExpenses();
 renderMonthlyTracker();
 
-// Attempt data recovery if income is empty
+// Run recovery/dedup on every load for this version
 setTimeout(recoverKnownData, 2000);
 </script>
 
