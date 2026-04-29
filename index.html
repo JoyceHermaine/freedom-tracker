@@ -2118,35 +2118,6 @@ function renderIncome() {
 }
 
 // ============================================================
-// TAB NAVIGATION
-// ============================================================
-function switchTab(tab) {
-  // Hide all pages
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  
-  // Show selected page
-  const page = document.getElementById('page-' + tab);
-  if (page) page.classList.add('active');
-  
-  // Highlight selected tab
-  const tabs = document.querySelectorAll('.tab');
-  tabs.forEach(t => {
-    if (t.getAttribute('onclick') && t.getAttribute('onclick').includes("'" + tab + "'")) {
-      t.classList.add('active');
-    }
-  });
-
-  // Render charts when charts tab is opened
-  if (tab === 'charts') renderCharts();
-  if (tab === 'history') renderHistory();
-  if (tab === 'income') renderIncome();
-  if (tab === 'goals') renderGoals();
-  if (tab === 'bills') renderBills();
-  if (tab === 'debts') renderDebts();
-}
-
-// ============================================================
 // EXPORT TO CSV
 // ============================================================
 function exportToCSV() {
@@ -2398,7 +2369,7 @@ function renderMonthlyChart() {
 // ============================================================
 async function recoverKnownData() {
   // Only run once per version
-  if (localStorage.getItem('je_recovery_done') === '2.2') return;
+  if (localStorage.getItem('je_recovery_done') === '3.0') return;
 
   // EXACT correct income log — no duplicates
   const correctIncome = [
@@ -2439,7 +2410,7 @@ async function recoverKnownData() {
   const secbank = state.debts.find(d => d.id === 'secbank');
   if (secbank) secbank.balance = 34779; // 38279 - 3500
 
-  localStorage.setItem('je_recovery_done', '2.2');
+  localStorage.setItem('je_recovery_done', '3.0');
   saveLocalOnly();
   renderAll();
 }
@@ -2466,16 +2437,14 @@ if (localStorage.getItem('je_app_version') !== APP_VERSION) {
 
 // Smart init: pull first, if empty run recovery and push
 async function initSync() {
-  setSyncStatus('yellow', 'Loading...');
   const pulled = await pullFromCloud(true);
   if (!pulled) {
-    // Cloud is empty — restore known data and push
+    // Cloud is empty — run recovery to restore known data then push
+    console.log('Cloud empty, running recovery...');
     await recoverKnownData();
     await pushToCloud();
     setSyncStatus('green', 'Synced ✓');
-    showToast('✅ Data restored & synced! 🌸');
-  } else {
-    setSyncStatus('green', 'Synced ✓');
+    showToast('✅ Data restored & synced to cloud! 🌸');
   }
 }
 initSync();
@@ -2542,8 +2511,34 @@ renderIncome();
 renderOtherExpenses();
 renderMonthlyTracker();
 
-// Run recovery/dedup on every load for this version
-setTimeout(recoverKnownData, 2000);
+// Smart init: always try to recover if data is missing
+async function initSync() {
+  setSyncStatus('yellow', 'Loading...');
+  
+  // First check if we have local data
+  const hasLocalData = (state.incomeLog||[]).length > 0 || (state.paymentHistory||[]).length > 0;
+  
+  if (!hasLocalData) {
+    // No local data — restore known data first
+    await recoverKnownData();
+  }
+  
+  // Now try to pull from Firebase
+  const pulled = await pullFromCloud(true);
+  
+  if (!pulled) {
+    // Firebase is empty — push our local/recovered data up
+    await pushToCloud();
+    showToast('✅ Data pushed to Firebase! 🌸');
+  }
+  
+  setSyncStatus('green', 'Synced ✓');
+  renderAll();
+}
+
+// Clear recovery flag so it always runs fresh
+localStorage.removeItem('je_recovery_done');
+initSync();
 
 </script>
 </body>
