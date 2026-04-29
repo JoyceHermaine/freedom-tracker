@@ -806,6 +806,20 @@ function doPost(e){
       🔄 Clear Cache & Resync
     </button>
     <div style="font-size:10px; color:var(--muted); margin-top:8px;">This keeps all your data — it just fetches the latest from cloud ☁️</div>
+    <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:10px; font-weight:600;">🆘 Lost your data? Restore from local backup:</div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="restoreFromBackup(1)" style="flex:1; padding:10px; background:linear-gradient(135deg,#d0fdf0,#b0f5e2); border:none; border-radius:12px; font-size:12px; font-weight:800; color:#276749; cursor:pointer; font-family:Nunito,sans-serif;">
+          🕐 Backup 1<br><span style="font-size:9px;font-weight:600;" id="backup1label">most recent</span>
+        </button>
+        <button onclick="restoreFromBackup(2)" style="flex:1; padding:10px; background:linear-gradient(135deg,#e8f5ff,#d0e8ff); border:none; border-radius:12px; font-size:12px; font-weight:800; color:#1a5276; cursor:pointer; font-family:Nunito,sans-serif;">
+          🕑 Backup 2<br><span style="font-size:9px;font-weight:600;" id="backup2label">older</span>
+        </button>
+        <button onclick="restoreFromBackup(3)" style="flex:1; padding:10px; background:linear-gradient(135deg,#f5e6ff,#ead0ff); border:none; border-radius:12px; font-size:12px; font-weight:800; color:#6c3483; cursor:pointer; font-family:Nunito,sans-serif;">
+          🕒 Backup 3<br><span style="font-size:9px;font-weight:600;" id="backup3label">oldest</span>
+        </button>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -2351,6 +2365,47 @@ function renderMonthlyChart() {
   });
 }
 
+
+// ============================================================
+// DATA RECOVERY — Pre-fill known income and history from Apr 29
+// Only runs if incomeLog is empty (after a data loss)
+// ============================================================
+function recoverKnownData() {
+  if ((state.incomeLog || []).length > 0) return; // already has data, skip
+  if ((state.paymentHistory || []).length > 0) return;
+
+  const knownIncome = [
+    { id:'rec_1', source:'Joyce Salary Remaining - BPI', amount:39577, name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
+    { id:'rec_2', source:'Joyce Salary Remaining - Security Bank', amount:27570, name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
+    { id:'rec_3', source:'To Balance: Joyce Food Panda Food Allowance', amount:639, name:'Joyce', date:'Apr 29, 2026', time:'03:35 PM' },
+    { id:'rec_4', source:'Joyce Maribank', amount:140, name:'Joyce', date:'Apr 29, 2026', time:'04:30 PM' },
+    { id:'rec_5', source:'Emil BPI Remaining', amount:713, name:'Emil', date:'Apr 29, 2026', time:'05:03 PM' },
+    { id:'rec_6', source:'Emil Maribank remaining', amount:464, name:'Emil', date:'Apr 29, 2026', time:'05:04 PM' },
+    { id:'rec_7', source:'Emil Gcash Remaining', amount:503, name:'Emil', date:'Apr 29, 2026', time:'05:06 PM' },
+    { id:'rec_8', source:'Emil Maya Savings', amount:286, name:'Emil', date:'Apr 29, 2026', time:'05:07 PM' },
+    { id:'rec_9', source:'Emil Cash On Hand', amount:10600, name:'Emil', date:'Apr 29, 2026', time:'05:29 PM' },
+  ];
+
+  state.incomeLog = knownIncome;
+
+  // Also log them in payment history
+  state.paymentHistory = knownIncome.map(e => ({
+    id: 'ph_' + e.id,
+    emoji: '💰',
+    description: 'Income: ' + e.source,
+    amount: e.amount,
+    type: 'income',
+    ref: e.id,
+    name: e.name,
+    date: e.date,
+    time: e.time,
+  }));
+
+  saveLocalOnly();
+  pushToCloud();
+  renderAll();
+  showToast('✅ Data recovered! Income restored from session records. 🌸');
+}
 function renderAll() {
   renderHome();
   renderFood();
@@ -3411,6 +3466,21 @@ pullFromCloud(false);
 // Auto pull every 30 seconds while app is open
 setInterval(() => { if (!isSyncing) pullFromCloud(true); }, 30000);
 
+// Update backup labels
+[1,2,3].forEach(n => {
+  const raw = localStorage.getItem('je_backup_' + n);
+  const el = document.getElementById('backup' + n + 'label');
+  if (el && raw) {
+    try {
+      const b = JSON.parse(raw);
+      const dt = b.backedUpAt ? new Date(b.backedUpAt).toLocaleString('en-PH', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '?';
+      el.textContent = (b.backedUpBy||'?') + ' · ' + dt;
+    } catch(e) { el.textContent = 'available'; }
+  } else if (el) {
+    el.textContent = 'not available';
+  }
+});
+
 renderHome();
 initVerseDots();
 renderFood();
@@ -3424,6 +3494,9 @@ renderGoals();
 renderIncome();
 renderOtherExpenses();
 renderMonthlyTracker();
+
+// Attempt data recovery if income is empty
+setTimeout(recoverKnownData, 2000);
 </script>
 
 
