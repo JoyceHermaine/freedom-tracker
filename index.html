@@ -2420,4 +2420,62 @@ function recoverKnownData() {
   showToast('✅ Data fully restored! Total income: ₱80,492 🌸');
 }
 
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-PH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
+// Always hardcoded sync — no setup needed
+document.getElementById('setupOverlay').classList.add('hidden');
+setSyncStatus('green', 'Synced ✓');
+
+// Ask name only once
+if (!localStorage.getItem('je_userName')) {
+  showNameModal();
+}
+
+// Version-based cache reset
+const APP_VERSION = '2.1';
+if (localStorage.getItem('je_app_version') !== APP_VERSION) {
+  localStorage.setItem('je_foodSpent', '0');
+  localStorage.setItem('je_appaSpent', '0');
+  localStorage.setItem('je_mustangSpent', '0');
+  localStorage.setItem('je_app_version', APP_VERSION);
+}
+
+// Auto pull on open, then every 30s
+pullFromCloud(true);
+setInterval(() => { if (!isSyncing) pullFromCloud(true); }, 30000);
+
+// Update backup labels
+[1,2,3].forEach(n => {
+  const raw = localStorage.getItem('je_backup_' + n);
+  const el = document.getElementById('backup' + n + 'label');
+  if (el && raw) {
+    try {
+      const b = JSON.parse(raw);
+      const dt = b.backedUpAt ? new Date(b.backedUpAt).toLocaleString('en-PH', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '?';
+      el.textContent = (b.backedUpBy||'?') + ' · ' + dt;
+    } catch(e) { el.textContent = 'available'; }
+  } else if (el) {
+    el.textContent = 'not available';
+  }
+});
+
+renderHome();
+initVerseDots();
+renderFood();
+renderAppa();
+renderMustang();
+renderDebts();
+renderHistory();
+renderPaidSummary();
+renderBills();
+renderGoals();
+renderIncome();
+renderOtherExpenses();
+renderMonthlyTracker();
+
+// Run recovery/dedup on every load for this version
+setTimeout(recoverKnownData, 2000);
+
+</script>
+</body>
+</html>
