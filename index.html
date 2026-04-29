@@ -11,8 +11,6 @@
 <link rel="manifest" id="manifestLink">
 <title>Joyce & Emil 🌸 Debt Freedom Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400&family=Righteous&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 <style>
   :root {
     --pink: #ff6b9d;
@@ -524,19 +522,10 @@
 function doPost(e){
   var props=PropertiesService.getScriptProperties();
   try{
-    // Handle both JSON and FormData
-    var k='tracker_state', v='';
-    if(e.postData.type==='application/x-www-form-urlencoded'||e.postData.type.includes('multipart')){
-      k=e.parameter.k||'tracker_state';
-      v=e.parameter.v||e.postData.contents;
-    } else {
-      var payload=JSON.parse(e.postData.contents);
-      k=payload.k||'tracker_state';
-      v=payload.v||e.postData.contents;
-    }
-    props.setProperty(k,v);
+    var payload=JSON.parse(e.postData.contents);
+    props.setProperty(payload.k, payload.v);
   }catch(err){
-    props.setProperty('tracker_state',e.postData.contents);
+    props.setProperty('tracker_state', e.postData.contents);
   }
   return ContentService.createTextOutput('ok')
     .setMimeType(ContentService.MimeType.TEXT);
@@ -576,7 +565,7 @@ function doPost(e){
   <div class="header-date" id="todayDate"></div>
   <div class="sync-status" onclick="showSyncInfo()" id="syncStatusBadge">
     <div class="sync-dot yellow" id="syncDot"></div>
-    <span id="syncStatusText">Connecting...</span>
+    <span id="syncStatusText">Not connected</span>
   </div>
 </div>
 
@@ -609,28 +598,7 @@ function doPost(e){
       <div style="font-family:'Righteous',cursive; font-size:24px; color:var(--mint);" id="availableCash">₱0</div>
       <div style="font-size:10px; color:var(--muted); margin-top:2px;">total money you currently have to allocate</div>
     </div>
-
-  </div>
-
-  <!-- MONTHLY SUMMARY CARD -->
-  <div class="card" style="margin-bottom:12px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div class="card-title" style="margin-bottom:0;">📅 This Month vs Last</div>
-      <span id="currentMonthLabel" style="font-size:11px;font-weight:800;color:var(--muted);"></span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="monthCompareGrid">
-      <div style="background:linear-gradient(135deg,#fff0f5,#ffe0ee);border-radius:14px;padding:14px;text-align:center;">
-        <div style="font-size:10px;font-weight:800;color:var(--pink);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;" id="thisMonthLabel">This Month</div>
-        <div style="font-family:'Righteous',cursive;font-size:20px;color:var(--dark);" id="thisMonthTotal">₱0</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;">total spent</div>
-      </div>
-      <div style="background:linear-gradient(135deg,#f0f0ff,#e8e0ff);border-radius:14px;padding:14px;text-align:center;">
-        <div style="font-size:10px;font-weight:800;color:var(--lavender);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;" id="lastMonthLabel">Last Month</div>
-        <div style="font-family:'Righteous',cursive;font-size:20px;color:var(--dark);" id="lastMonthTotal">₱0</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;">total spent</div>
-      </div>
-    </div>
-    <div id="monthDiffNote" style="text-align:center;font-size:11px;font-weight:700;margin-top:10px;color:var(--muted);"></div>
+    <button onclick="hardResetAndSync()" style="margin-top:10px;background:rgba(255,107,157,0.12);border:1px dashed var(--pink-light);border-radius:10px;padding:6px 16px;font-size:11px;font-weight:800;color:var(--pink);cursor:pointer;font-family:Nunito,sans-serif;">🔄 Clear Cache & Resync</button>
   </div>
 
   <div class="hero-grid">
@@ -817,20 +785,6 @@ function doPost(e){
       🔄 Clear Cache & Resync
     </button>
     <div style="font-size:10px; color:var(--muted); margin-top:8px;">This keeps all your data — it just fetches the latest from cloud ☁️</div>
-    <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
-      <div style="font-size:11px; color:var(--muted); margin-bottom:10px; font-weight:600;">🆘 Lost your data? Restore from local backup:</div>
-      <div style="display:flex; gap:8px;">
-        <button onclick="restoreFromBackup(1)" style="flex:1; padding:10px; background:linear-gradient(135deg,#d0fdf0,#b0f5e2); border:none; border-radius:12px; font-size:12px; font-weight:800; color:#276749; cursor:pointer; font-family:Nunito,sans-serif;">
-          🕐 Backup 1<br><span style="font-size:9px;font-weight:600;" id="backup1label">most recent</span>
-        </button>
-        <button onclick="restoreFromBackup(2)" style="flex:1; padding:10px; background:linear-gradient(135deg,#e8f5ff,#d0e8ff); border:none; border-radius:12px; font-size:12px; font-weight:800; color:#1a5276; cursor:pointer; font-family:Nunito,sans-serif;">
-          🕑 Backup 2<br><span style="font-size:9px;font-weight:600;" id="backup2label">older</span>
-        </button>
-        <button onclick="restoreFromBackup(3)" style="flex:1; padding:10px; background:linear-gradient(135deg,#f5e6ff,#ead0ff); border:none; border-radius:12px; font-size:12px; font-weight:800; color:#6c3483; cursor:pointer; font-family:Nunito,sans-serif;">
-          🕒 Backup 3<br><span style="font-size:9px;font-weight:600;" id="backup3label">oldest</span>
-        </button>
-      </div>
-    </div>
   </div>
 
 </div>
@@ -886,8 +840,8 @@ function doPost(e){
 
   <div class="card">
     <div class="card-title">🍩 Debt Breakdown</div>
-    <div style="position:relative; width:320px; height:320px; margin:0 auto;">
-      <canvas id="donutChart" style="width:320px !important; height:320px !important;"></canvas>
+    <div class="chart-wrap" style="position:relative; max-height:320px; padding-bottom:8px;">
+      <canvas id="donutChart" style="max-height:320px;"></canvas>
     </div>
   </div>
 
@@ -902,13 +856,6 @@ function doPost(e){
     <div class="card-title">💚 Income vs Obligations</div>
     <div class="chart-wrap">
       <canvas id="incomeChart"></canvas>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📅 Monthly Spending History</div>
-    <div class="chart-wrap">
-      <canvas id="monthlyChart"></canvas>
     </div>
   </div>
 </div>
@@ -1274,6 +1221,8 @@ function doPost(e){
 
 <div class="confetti-wrap" id="confettiWrap"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 // ===================== DATA =====================
@@ -1396,41 +1345,32 @@ function initFirebase() {
   }
 }
 
-function setSyncStatus(status, text) {
-  const dot = document.getElementById('syncDot');
-  const txt = document.getElementById('syncStatusText');
-  if (dot) dot.className = 'sync-dot ' + status;
-  if (txt) txt.textContent = text;
-}
-
 function showSyncBanner(type, text) {
   if (!_manualSyncMode) return;
   const banner = document.getElementById('syncBanner');
-  const icon = document.getElementById('syncBannerIcon');
-  const bannerText = document.getElementById('syncBannerText');
   if (!banner) return;
   banner.style.display = 'flex';
   banner.className = 'sync-banner' + (type==='error'?' error':type==='syncing'?' syncing':'');
+  const icon = document.getElementById('syncBannerIcon');
+  const bannerText = document.getElementById('syncBannerText');
   if (icon) icon.textContent = type==='error'?'⚠️':type==='syncing'?'🔄':'✅';
   if (bannerText) bannerText.textContent = text;
   if (type !== 'syncing') setTimeout(() => { banner.style.display='none'; _manualSyncMode=false; }, 3000);
 }
 
+function scheduleSync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushToCloud, SYNC_DEBOUNCE);
+}
+
 function getDataToSave() {
   return {
-    debts: state.debts,
-    goals: state.goals,
-    bills: state.bills,
-    totalPaid: state.totalPaid,
-    foodBudget: state.foodBudget,
-    foodSpent: state.foodSpent,
-    appaBudget: state.appaBudget,
-    appaSpent: state.appaSpent,
-    mustangBudget: state.mustangBudget,
-    mustangSpent: state.mustangSpent,
-    otherExpenses: state.otherExpenses || [],
-    incomeLog: state.incomeLog || [],
-    savings: state.savings || 0,
+    debts: state.debts, goals: state.goals, bills: state.bills,
+    totalPaid: state.totalPaid, foodBudget: state.foodBudget,
+    foodSpent: state.foodSpent, appaBudget: state.appaBudget,
+    appaSpent: state.appaSpent, mustangBudget: state.mustangBudget,
+    mustangSpent: state.mustangSpent, otherExpenses: state.otherExpenses || [],
+    incomeLog: state.incomeLog || [], savings: state.savings || 0,
     paymentHistory: state.paymentHistory || [],
     lastUpdated: new Date().toISOString(),
     updatedBy: localStorage.getItem('je_userName') || 'Joyce',
@@ -1452,22 +1392,20 @@ async function pushToCloud() {
   isSyncing = false;
 }
 
+const safeArr = (ca, la) => {
+  ca = ca||[]; la = la||[];
+  if (!ca.length) return la;
+  if (!la.length) return ca;
+  return ca.length >= la.length ? ca : la;
+};
+
 async function pullFromCloud(silent) {
   if (!_firebaseRef) initFirebase();
   if (!_firebaseRef) return false;
   try {
     const snapshot = await _firebaseRef.once('value');
     const cloud = snapshot.val();
-    if (!cloud || !cloud.debts) {
-      setSyncStatus('yellow', 'No cloud data');
-      return false;
-    }
-    const safeArr = (ca, la) => {
-      ca = ca||[]; la = la||[];
-      if (ca.length===0) return la;
-      if (la.length===0) return ca;
-      return ca.length >= la.length ? ca : la;
-    };
+    if (!cloud || !cloud.debts) return false;
     state.debts = cloud.debts || state.debts;
     state.goals = cloud.goals || state.goals;
     state.bills = cloud.bills || state.bills;
@@ -1485,11 +1423,6 @@ async function pullFromCloud(silent) {
     saveLocalOnly();
     renderAll();
     setSyncStatus('green', 'Synced ✓');
-    if (!silent) {
-      const who = cloud.updatedBy || '';
-      const when = cloud.lastUpdated ? new Date(cloud.lastUpdated).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}) : '';
-      if (who) showSyncBanner('success', '✅ Synced · ' + who + ' · ' + when);
-    }
     return true;
   } catch(e) {
     setSyncStatus('red', 'Sync error');
@@ -1506,36 +1439,24 @@ async function verifyCloudHasData() {
   } catch(e) { return false; }
 }
 
-function forcePushAll() {
-  setSyncStatus('yellow', 'Pushing...');
-  // Reset recovery flag so it runs again
-  localStorage.removeItem('je_recovery_done');
-  recoverKnownData();
-  setTimeout(() => {
-    pushToCloud().then(() => {
-      setSyncStatus('green', 'Synced ✓');
-      showToast('✅ Data pushed to cloud! ' + fmt((state.incomeLog||[]).reduce((s,e)=>s+e.amount,0)) + ' income synced.');
-    });
-  }, 500);
-}
-
 function showSyncInfo() {
   _manualSyncMode = true;
   showSyncBanner('syncing', '🔄 Syncing...');
-  pushToCloud().then(() => pullFromCloud(false));
+  pushToCloud().then(() => pullFromCloud(true).then(() => showSyncBanner('success', '✅ Synced!')));
 }
 
 async function testAndSync() {
   _manualSyncMode = true;
   showSyncBanner('syncing', '🔄 Manual sync...');
   await pushToCloud();
-  await pullFromCloud(false);
+  await pullFromCloud(true);
   showSyncBanner('success', '✅ Done!');
 }
 
-function connectSync() {}
+function connectSync() { document.getElementById('setupOverlay').classList.add('hidden'); }
 function skipSync() { document.getElementById('setupOverlay').classList.add('hidden'); }
 function copyGASCode() {}
+
 
 function saveLocalOnly() {
   localStorage.setItem('je_debts', JSON.stringify(state.debts));
@@ -1968,32 +1889,22 @@ function renderIncome() {
         const db = new Date((b.date || '') + ' ' + (b.time || ''));
         return db - da;
       });
-      // Month filter applies to TOTAL display and breakdown, but last 3 shows always
+      // Apply month filter
       const _monthFilter = document.getElementById('incomeMonthFilter') ? document.getElementById('incomeMonthFilter').value : 'current';
       const _now2 = new Date();
       const _curMonth = _now2.toLocaleDateString('en-PH', {month:'short'});
       const _curYear = _now2.getFullYear().toString();
-      // Keep full merged for display of last 3 entries
-      const _filteredForTotal = _monthFilter === 'current'
+      const filteredMerged = _monthFilter === 'current'
         ? merged.filter(e => (e.date||'').includes(_curMonth) && (e.date||'').includes(_curYear))
         : merged;
-      // Update total and vs obligations based on filter
-      const _filteredTotal = _filteredForTotal.reduce((s,e) => s+(e.amount||0), 0);
-      const totalEl3 = document.getElementById('incomeTotalDisplay');
-      if (totalEl3) totalEl3.textContent = fmt(_filteredTotal);
-      const vsEl3 = document.getElementById('incomeVsObligations');
-      if (vsEl3) {
-        const diff3 = _filteredTotal - obligations;
-        vsEl3.textContent = diff3 >= 0 ? '✅ '+fmt(diff3)+' above monthly obligations' : '⚠️ '+fmt(Math.abs(diff3))+' below monthly obligations';
-        vsEl3.style.color = diff3 >= 0 ? 'var(--mint)' : 'var(--pink)';
-      }
-      // Last 3 always from full merged list
+      merged.length = 0;
+      filteredMerged.forEach(e => merged.push(e));
 
       // Show latest 3 in Income tab — always show if we have entries
-      const display = merged.slice(0, 3);
       if (merged.length === 0) {
-        listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">No income logged yet. 💰<br><span style="font-size:11px;">Tap + Log New Income to add!</span></div>';
+        listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">No income logged today. 💰<br><span style="font-size:11px;">Tap + Log New Income to add!</span></div>';
       } else {
+      const display = merged.slice(0, 3);
       const hasMore = merged.length > 3;
 
       listEl.innerHTML = display.map(e => {
@@ -2016,7 +1927,7 @@ function renderIncome() {
           </div>
         </div>`;
       }).join('') + (hasMore ? `<div style="text-align:center;font-size:12px;color:var(--pink);font-weight:800;padding:10px 0;cursor:pointer;" onclick="switchTab('history');filterHistory('income');">See all ${merged.length} income entries in History →</div>` : '');
-      }
+      } // end else
 
       // Fix total to use merged list
       const mergedTotal = merged.reduce((s, e) => s + (e.amount || 0), 0);
@@ -2039,37 +1950,24 @@ function renderIncome() {
   }
 
   // Breakdown
-  // Income by person summary — always use ALL TIME full merged list regardless of month filter
+  // Income by person summary
   const summaryEl = document.getElementById('incomePersonSummary');
   if (summaryEl) {
-    // Build full all-time merged list for person summary
-    const _phIncAll = (state.paymentHistory || [])
-      .filter(h => h.type === 'income')
-      .map(h => ({ id: h.id, amount: h.amount||0, name: h.name||'Joyce', source: h.description ? h.description.replace('Income: ','') : '' }));
-    const _ilIdsAll = new Set((state.incomeLog||[]).map(e => e.id));
-    const _allTimeMerged = [...(state.incomeLog||[])];
-    _phIncAll.forEach(e => { if (!_ilIdsAll.has(e.id)) _allTimeMerged.push(e); });
-
     const byPerson = {};
-    _allTimeMerged.forEach(e => {
+    _mergedForTotal.forEach(e => {
       const n = e.name || 'Joyce';
-      if (!byPerson[n]) byPerson[n] = { total: 0, entries: [] };
-      byPerson[n].total += (e.amount || 0);
-      byPerson[n].entries.push(e);
+      byPerson[n] = (byPerson[n] || 0) + e.amount;
     });
-
-    summaryEl.innerHTML = Object.entries(byPerson).map(([name, data]) => {
+    summaryEl.innerHTML = Object.entries(byPerson).map(([name, amt]) => {
       const isJoyce = name === 'Joyce';
       const color = isJoyce ? 'var(--pink)' : 'var(--blue)';
       const bg = isJoyce ? '#fff0f5' : '#e8f5ff';
       const icon = isJoyce ? '🌸' : '💪';
-      const entryCount = data.entries.length;
-      return `<div style="padding:10px 0;border-bottom:1px dashed var(--border);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="background:${bg};color:${color};font-weight:800;font-size:12px;padding:4px 12px;border-radius:99px;">${icon} ${name}</span>
-          <span style="font-family:'Righteous',cursive;font-size:16px;color:${color};">+${fmt(data.total)}</span>
-        </div>
-        <div style="font-size:10px;color:var(--muted);font-weight:700;">${entryCount} income entr${entryCount === 1 ? 'y' : 'ies'} · latest: ${data.entries[0] ? data.entries[0].source || '' : ''}</div>
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--border);">
+        <span style="display:flex;align-items:center;gap:8px;">
+          <span style="background:${bg};color:${color};font-weight:800;font-size:11px;padding:3px 10px;border-radius:99px;">${icon} ${name}</span>
+        </span>
+        <span style="font-family:'Righteous',cursive;font-size:15px;color:${color};">+${fmt(amt)}</span>
       </div>`;
     }).join('') || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:10px;">No income yet!</div>';
   }
@@ -2165,214 +2063,1190 @@ function exportToCSV() {
   showToast('📥 CSV exported! Check your Downloads.');
 }
 
-
 // ============================================================
 // MONTHLY TRACKER
 // ============================================================
 function getMonthKey(dateStr) {
   if (!dateStr) return null;
-  // dateStr format: "Apr 29, 2026"
   const parts = dateStr.split(' ');
   if (parts.length < 3) return null;
-  return parts[0] + ' ' + parts[2]; // "Apr 2026"
+  return parts[0] + ' ' + parts[2];
 }
-
 function buildMonthlyData() {
-  const allEntries = [
-    ...(state.paymentHistory || []),
-  ];
-  // Include income entries
-  const incomeEntries = (state.incomeLog || []).map(e => ({
-    ...e,
-    type: 'income',
-    description: e.source,
-  }));
-
-  const monthlySpend = {}; // { "Apr 2026": { total, payments, expenses, tithes, income } }
+  const monthlySpend = {};
   const monthlyIncome = {};
-
-  allEntries.forEach(h => {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  (state.paymentHistory||[]).forEach(h => {
     const key = getMonthKey(h.date);
     if (!key) return;
-    if (!monthlySpend[key]) monthlySpend[key] = { total:0, payments:0, expenses:0, tithes:0, transfers:0 };
-    const amt = h.amount || 0;
-    if (h.type === 'income') return; // skip income from spend
-    if (h.type === 'transfer') { monthlySpend[key].transfers += amt; return; }
-    if (h.type === 'tithes') { monthlySpend[key].tithes += amt; monthlySpend[key].total += amt; return; }
-    if (['bill','debtpay'].includes(h.type)) { monthlySpend[key].payments += amt; monthlySpend[key].total += amt; return; }
-    if (['expense','other','goalsave','savings'].includes(h.type)) { monthlySpend[key].expenses += amt; monthlySpend[key].total += amt; return; }
-    monthlySpend[key].total += amt;
+    if (!monthlySpend[key]) monthlySpend[key] = { total:0, payments:0, expenses:0, tithes:0 };
+    const amt = h.amount||0;
+    if (h.type==='income'||h.type==='transfer') return;
+    if (h.type==='tithes') { monthlySpend[key].tithes+=amt; monthlySpend[key].total+=amt; return; }
+    if (['bill','debtpay'].includes(h.type)) { monthlySpend[key].payments+=amt; monthlySpend[key].total+=amt; return; }
+    monthlySpend[key].expenses+=amt; monthlySpend[key].total+=amt;
   });
-
-  // Income by month
-  const allIncome = [
-    ...(state.incomeLog || []),
-    ...(state.paymentHistory || []).filter(h => h.type === 'income'),
-  ];
-  const seenIds = new Set();
+  const allIncome = [...(state.incomeLog||[])];
+  const seen = new Set(allIncome.map(e=>e.id));
+  (state.paymentHistory||[]).filter(h=>h.type==='income'&&!seen.has(h.id)).forEach(h=>allIncome.push(h));
   allIncome.forEach(e => {
-    if (seenIds.has(e.id)) return;
-    seenIds.add(e.id);
     const key = getMonthKey(e.date);
     if (!key) return;
-    if (!monthlyIncome[key]) monthlyIncome[key] = 0;
-    monthlyIncome[key] += (e.amount || 0);
+    if (!monthlyIncome[key]) monthlyIncome[key]=0;
+    monthlyIncome[key]+=(e.amount||0);
   });
-
   return { monthlySpend, monthlyIncome };
 }
-
 function renderMonthlyTracker() {
   const { monthlySpend, monthlyIncome } = buildMonthlyData();
   const now = new Date();
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const thisMonthKey = months[now.getMonth()] + ' ' + now.getFullYear();
-  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthKey = months[lastMonthDate.getMonth()] + ' ' + lastMonthDate.getFullYear();
-
-  // Update home card
-  const thisTotal = (monthlySpend[thisMonthKey] || {}).total || 0;
-  const lastTotal = (monthlySpend[lastMonthKey] || {}).total || 0;
-  const thisIncome = monthlyIncome[thisMonthKey] || 0;
-  const lastIncome = monthlyIncome[lastMonthKey] || 0;
-
-  const thisMonthEl = document.getElementById('thisMonthTotal');
-  const lastMonthEl = document.getElementById('lastMonthTotal');
-  const thisLabelEl = document.getElementById('thisMonthLabel');
-  const lastLabelEl = document.getElementById('lastMonthLabel');
-  const diffEl = document.getElementById('monthDiffNote');
-  const curLabelEl = document.getElementById('currentMonthLabel');
-
-  if (thisMonthEl) thisMonthEl.textContent = fmt(thisTotal);
-  if (lastMonthEl) lastMonthEl.textContent = fmt(lastTotal);
-  if (thisLabelEl) thisLabelEl.textContent = thisMonthKey;
-  if (lastLabelEl) lastLabelEl.textContent = lastMonthKey;
-  if (curLabelEl) curLabelEl.textContent = 'auto-tracked from history';
-
-  if (diffEl) {
-    if (lastTotal > 0) {
-      const diff = thisTotal - lastTotal;
-      const pctDiff = ((Math.abs(diff) / lastTotal) * 100).toFixed(0);
-      if (diff > 0) {
-        diffEl.textContent = '📈 Spending up ' + pctDiff + '% vs last month';
-        diffEl.style.color = 'var(--pink)';
-      } else if (diff < 0) {
-        diffEl.textContent = '📉 Spending down ' + pctDiff + '% vs last month — great job! 🌸';
-        diffEl.style.color = 'var(--mint)';
-      } else {
-        diffEl.textContent = '➡️ Same as last month';
-        diffEl.style.color = 'var(--muted)';
-      }
-    } else {
-      diffEl.textContent = 'Keep logging to see monthly comparisons! 🌸';
-    }
+  const thisKey = months[now.getMonth()]+' '+now.getFullYear();
+  const lastDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lastKey = months[lastDate.getMonth()]+' '+lastDate.getFullYear();
+  const thisTotal = (monthlySpend[thisKey]||{}).total||0;
+  const lastTotal = (monthlySpend[lastKey]||{}).total||0;
+  const el1 = document.getElementById('thisMonthTotal');
+  const el2 = document.getElementById('lastMonthTotal');
+  const el3 = document.getElementById('thisMonthLabel');
+  const el4 = document.getElementById('lastMonthLabel');
+  const el5 = document.getElementById('monthDiffNote');
+  if (el1) el1.textContent = fmt(thisTotal);
+  if (el2) el2.textContent = fmt(lastTotal);
+  if (el3) el3.textContent = thisKey;
+  if (el4) el4.textContent = lastKey;
+  if (el5 && lastTotal > 0) {
+    const diff = thisTotal - lastTotal;
+    const pct = ((Math.abs(diff)/lastTotal)*100).toFixed(0);
+    el5.textContent = diff>0?'📈 Spending up '+pct+'% vs last month':diff<0?'📉 Spending down '+pct+'% — great! 🌸':'➡️ Same as last month';
+    el5.style.color = diff>0?'var(--pink)':diff<0?'var(--mint)':'var(--muted)';
   }
-
-  // History monthly breakdown
   const breakEl = document.getElementById('monthlyBreakdown');
   if (breakEl) {
-    const allKeys = [...new Set([
-      ...Object.keys(monthlySpend),
-      ...Object.keys(monthlyIncome)
-    ])].sort((a, b) => {
-      const ma = months.indexOf(a.split(' ')[0]) + parseInt(a.split(' ')[1]) * 12;
-      const mb = months.indexOf(b.split(' ')[0]) + parseInt(b.split(' ')[1]) * 12;
-      return mb - ma;
+    const allKeys = [...new Set([...Object.keys(monthlySpend),...Object.keys(monthlyIncome)])].sort((a,b)=>{
+      const ma=months.indexOf(a.split(' ')[0])+parseInt(a.split(' ')[1])*12;
+      const mb=months.indexOf(b.split(' ')[0])+parseInt(b.split(' ')[1])*12;
+      return mb-ma;
     });
-
-    if (allKeys.length === 0) {
-      breakEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">Log more transactions to see monthly history! 🌸</div>';
-    } else {
-      breakEl.innerHTML = allKeys.map(key => {
-        const spend = monthlySpend[key] || {};
-        const income = monthlyIncome[key] || 0;
-        const total = spend.total || 0;
-        const isCurrentMonth = key === thisMonthKey;
-        return `<div style="padding:12px 0;border-bottom:1px dashed var(--border);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-size:13px;font-weight:800;color:var(--text);">${key}${isCurrentMonth ? ' <span style="font-size:10px;background:#fff0f5;color:var(--pink);padding:2px 8px;border-radius:99px;font-weight:800;">current</span>' : ''}</span>
-            <span style="font-family:'Righteous',cursive;font-size:14px;color:var(--pink);">${fmt(total)} spent</span>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            ${spend.payments ? `<span style="font-size:10px;background:#fff0f5;color:var(--pink);padding:2px 8px;border-radius:99px;font-weight:700;">💸 Payments ${fmt(spend.payments)}</span>` : ''}
-            ${spend.expenses ? `<span style="font-size:10px;background:#fff8e8;color:var(--peach);padding:2px 8px;border-radius:99px;font-weight:700;">🧾 Expenses ${fmt(spend.expenses)}</span>` : ''}
-            ${spend.tithes ? `<span style="font-size:10px;background:#f5e6ff;color:var(--lavender);padding:2px 8px;border-radius:99px;font-weight:700;">🙏 Tithes ${fmt(spend.tithes)}</span>` : ''}
-            ${income ? `<span style="font-size:10px;background:#d0fdf0;color:#276749;padding:2px 8px;border-radius:99px;font-weight:700;">💰 Income ${fmt(income)}</span>` : ''}
-          </div>
-        </div>`;
-      }).join('');
-    }
+    breakEl.innerHTML = allKeys.length===0
+      ? '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px;">Log transactions to see monthly history! 🌸</div>'
+      : allKeys.map(key=>{
+          const sp=monthlySpend[key]||{};
+          const inc=monthlyIncome[key]||0;
+          const isCurrent=key===thisKey;
+          return `<div style="padding:12px 0;border-bottom:1px dashed var(--border);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:13px;font-weight:800;">${key}${isCurrent?' <span style="font-size:10px;background:#fff0f5;color:var(--pink);padding:2px 8px;border-radius:99px;">current</span>':''}</span>
+              <span style="font-family:Righteous,cursive;font-size:14px;color:var(--pink);">${fmt(sp.total||0)} spent</span>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${sp.payments?`<span style="font-size:10px;background:#fff0f5;color:var(--pink);padding:2px 8px;border-radius:99px;">💸 ${fmt(sp.payments)}</span>`:''}
+              ${sp.expenses?`<span style="font-size:10px;background:#fff8e8;color:var(--peach);padding:2px 8px;border-radius:99px;">🧾 ${fmt(sp.expenses)}</span>`:''}
+              ${sp.tithes?`<span style="font-size:10px;background:#f5e6ff;color:var(--lavender);padding:2px 8px;border-radius:99px;">🙏 ${fmt(sp.tithes)}</span>`:''}
+              ${inc?`<span style="font-size:10px;background:#d0fdf0;color:#276749;padding:2px 8px;border-radius:99px;">💰 ${fmt(inc)}</span>`:''}
+            </div>
+          </div>`;
+        }).join('');
   }
 }
-
-// Monthly chart rendering
 let monthlyChartInstance = null;
 function renderMonthlyChart() {
   const chartEl = document.getElementById('monthlyChart');
   if (!chartEl) return;
   const { monthlySpend, monthlyIncome } = buildMonthlyData();
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-  const allKeys = [...new Set([
-    ...Object.keys(monthlySpend),
-    ...Object.keys(monthlyIncome)
-  ])].sort((a, b) => {
-    const ma = months.indexOf(a.split(' ')[0]) + parseInt(a.split(' ')[1]) * 12;
-    const mb = months.indexOf(b.split(' ')[0]) + parseInt(b.split(' ')[1]) * 12;
-    return ma - mb;
-  }).slice(-6); // last 6 months
-
-  const spendData = allKeys.map(k => (monthlySpend[k] || {}).total || 0);
-  const incomeData = allKeys.map(k => monthlyIncome[k] || 0);
-
-  if (monthlyChartInstance) monthlyChartInstance.destroy();
+  const allKeys = [...new Set([...Object.keys(monthlySpend),...Object.keys(monthlyIncome)])].sort((a,b)=>{
+    const ma=months.indexOf(a.split(' ')[0])+parseInt(a.split(' ')[1])*12;
+    const mb=months.indexOf(b.split(' ')[0])+parseInt(b.split(' ')[1])*12;
+    return ma-mb;
+  }).slice(-6);
+  if (monthlyChartInstance) { monthlyChartInstance.destroy(); monthlyChartInstance=null; }
+  if (allKeys.length===0) return;
   monthlyChartInstance = new Chart(chartEl, {
-    type: 'bar',
-    data: {
-      labels: allKeys,
-      datasets: [
-        {
-          label: 'Spent',
-          data: spendData,
-          backgroundColor: '#ffaac8',
-          borderRadius: 8,
-          borderSkipped: false,
-        },
-        {
-          label: 'Income',
-          data: incomeData,
-          backgroundColor: '#74c7e8',
-          borderRadius: 8,
-          borderSkipped: false,
-        }
+    type:'bar',
+    data:{
+      labels:allKeys,
+      datasets:[
+        {label:'Spent',data:allKeys.map(k=>(monthlySpend[k]||{}).total||0),backgroundColor:'#ffaac8',borderRadius:8,borderSkipped:false},
+        {label:'Income',data:allKeys.map(k=>monthlyIncome[k]||0),backgroundColor:'#74c7e8',borderRadius:8,borderSkipped:false}
       ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { position: 'bottom', labels: { font: { family: 'Nunito', weight: '700', size: 11 }, padding: 10, boxWidth: 10 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } }
-      },
-      scales: {
-        y: { ticks: { callback: v => '₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10} }, grid: { color: '#f0e6f5' } },
-        x: { ticks: { font: { family: 'Nunito', weight: '700', size: 10 } }, grid: { display: false } }
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{legend:{position:'bottom',labels:{font:{family:'Nunito',weight:'700',size:11},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`}}},
+      scales:{
+        y:{ticks:{callback:v=>'₱'+Math.round(v/1000)+'k',font:{family:'Nunito',weight:'700',size:10}},grid:{color:'#f0e6f5'}},
+        x:{ticks:{font:{family:'Nunito',weight:'700',size:10}},grid:{display:false}}
       }
     }
   });
 }
 
+function renderAll() {
+  renderHome();
+  renderFood();
+  renderAppa();
+  renderMustang();
+  renderDebts();
+  renderBills();
+  renderGoals();
+  renderHistory();
+  renderPaidSummary();
+  renderIncome();
+  renderOtherExpenses();
+}
+
+async function connectSync() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  if (!url.startsWith('https://script.google.com')) {
+    alert('Please paste a valid Google Apps Script URL (starts with https://script.google.com)');
+    return;
+  }
+  localStorage.setItem(SYNC_URL_KEY, url);
+  // Ask for name
+  const name = prompt('What should we call you in sync logs? (e.g. Joyce or Emil)') || 'Joyce';
+  localStorage.setItem('je_userName', name);
+
+  document.getElementById('setupOverlay').classList.add('hidden');
+  setSyncStatus('yellow', 'Connecting...');
+  showToast('Connecting to cloud... ☁️');
+
+  // Try to pull existing data first, then push local
+  const pulled = await pullFromCloud(false);
+  if (!pulled) await pushToCloud();
+  showToast('🎉 Cloud sync active! Share the app with Emil now!');
+}
+
+function skipSync() {
+  localStorage.setItem(SYNC_URL_KEY, 'skip');
+  document.getElementById('setupOverlay').classList.add('hidden');
+  setSyncStatus('yellow', 'Offline mode');
+}
+
+function showSyncInfo() {
+  const url = getSyncUrl();
+  if (!url || url === 'skip') {
+    if (confirm('Cloud sync is not set up. Set it up now?')) {
+      localStorage.removeItem(SYNC_URL_KEY);
+      document.getElementById('setupOverlay').classList.remove('hidden');
+    }
+  } else {
+    // Show sync status dialog
+    const lastSync = localStorage.getItem('je_lastSync');
+    const lastSyncText = lastSync ? new Date(lastSync).toLocaleString('en-PH') : 'Never';
+    const userName = localStorage.getItem('je_userName') || 'Unknown';
+    const syncUrl = url.substring(0, 60) + '...';
+    const choice = confirm(`Sync Info\n\nUser: ${userName}\nLast sync: ${lastSyncText}\n\nOK = Force sync now\nCancel = Dismiss`);
+    if (choice) {
+      testAndSync();
+    }
+  }
+}
+
+function clearCacheAndResync() {
+  if (!confirm('🌸 Clear local cache and pull fresh data from cloud?\n\nYour data is safe — this just refreshes everything from the cloud!')) return;
+  localStorage.removeItem('je_app_version');
+  const keep = ['je_userName', 'je_syncUrl'];
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('je_') && !keep.includes(key)) localStorage.removeItem(key);
+  });
+  // Fade out gracefully instead of white flash
+  document.body.style.transition = 'opacity 0.5s';
+  document.body.style.opacity = '0';
+  setTimeout(() => window.location.reload(), 500);
+}
+
+async function testAndSync() {
+  const url = getSyncUrl();
+  _manualSyncMode = true; // allow banner for manual sync
+  setSyncStatus('yellow', 'Testing...');
+  showSyncBanner('syncing', '🔄 Syncing manually...');
+  try {
+    await pushToCloud();
+    const pulled = await pullFromCloud(true);
+    const who = localStorage.getItem('je_userName') || 'Joyce';
+    const when = new Date().toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'});
+    showSyncBanner('success', '✅ Manual sync done! ' + who + ' · ' + when);
+    setSyncStatus('green', 'Synced ✓');
+  } catch(err) {
+    setSyncStatus('red', 'Sync failed');
+    showSyncBanner('error', '❌ Sync failed. Check internet.');
+    console.error('Sync error:', err);
+  }
+}
+
+function copyGASCode() {
+  const code = document.getElementById('gasCode').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('✅ Code copied! Now paste it in Apps Script.');
+  }).catch(() => {
+    // Fallback for older iOS
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✅ Code copied! Now paste it in Apps Script.');
+  });
+}
+
+// ===================== UTILS =====================
+const fmt = n => '₱' + Math.round(n).toLocaleString('en-PH');
+const pct = (paid, total) => Math.min(100, Math.max(0, (paid/total)*100)).toFixed(1);
+
+function totalDebt() { return state.debts.reduce((a,d) => a+d.balance, 0); }
+function totalInitial() { return state.debts.reduce((a,d) => a+d.initial, 0); }
+
+// ===================== FOOD BUDGET =====================
+function renderFood() {
+  const remaining = state.foodBudget - state.foodSpent;
+  const pctSpent = Math.min(100, (state.foodSpent / state.foodBudget) * 100);
+  const color = pctSpent > 80 ? 'linear-gradient(90deg,#e53e3e,#ff6b9d)' : pctSpent > 60 ? 'linear-gradient(90deg,#ffd166,#ff9a6c)' : 'linear-gradient(90deg,#06d6a0,#ffd166)';
+  document.getElementById('foodRemaining').textContent = fmt(remaining) + ' remaining';
+  document.getElementById('foodBar').style.width = pctSpent + '%';
+  document.getElementById('foodBar').style.background = color;
+  document.getElementById('foodPct').textContent = fmt(state.foodSpent) + ' spent of ' + fmt(state.foodBudget) + ' budget 🍱';
+}
+
+function addFoodSpend() {
+  const val = parseFloat(document.getElementById('foodSpendInput').value);
+  if (isNaN(val) || val <= 0) return;
+  state.foodSpent += val;
+  logExpense('🍱', 'Food', val, 'expense', 'food');
+  document.getElementById('foodSpendInput').value = '';
+  saveState();
+  renderFood();
+  if (state.foodSpent > state.foodBudget) {
+    document.getElementById('foodPct').textContent = '⚠️ Over budget by ' + fmt(state.foodSpent - state.foodBudget) + '!';
+  }
+}
+
+function renderFuelTracker(spentKey, budgetKey, barId, remainingId, pctId, label, emoji) {
+  const spent = state[spentKey];
+  const budget = state[budgetKey];
+  const remaining = budget - spent;
+  const p = Math.min(100, (spent / budget) * 100);
+  const color = p > 80
+    ? 'linear-gradient(90deg,#e53e3e,#ff6b9d)'
+    : p > 60
+    ? 'linear-gradient(90deg,#ffd166,#ff9a6c)'
+    : 'linear-gradient(90deg,#ff9a6c,#ffd166)';
+  document.getElementById(remainingId).textContent = fmt(remaining) + ' remaining';
+  document.getElementById(barId).style.width = p + '%';
+  document.getElementById(barId).style.background = color;
+  const overMsg = spent > budget ? '⚠️ Over budget by ' + fmt(spent - budget) + '!' : fmt(spent) + ' spent of ' + fmt(budget) + ' budget ' + emoji;
+  document.getElementById(pctId).textContent = overMsg;
+}
+
+function renderAppa() {
+  renderFuelTracker('appaSpent','appaBudget','appaBar','appaRemaining','appaPct','Appa Gas','⛽');
+}
+function renderMustang() {
+  renderFuelTracker('mustangSpent','mustangBudget','mustangBar','mustangRemaining','mustangPct','Mustang Diesel','⛽');
+}
+
+function addAppaSpend() {
+  const val = parseFloat(document.getElementById('appaSpendInput').value);
+  if (isNaN(val) || val <= 0) return;
+  state.appaSpent += val;
+  logExpense('🚗', 'Appa Gas', val, 'expense', 'appa');
+  document.getElementById('appaSpendInput').value = '';
+  saveState();
+  renderAppa();
+}
+
+function addMustangSpend() {
+  const val = parseFloat(document.getElementById('mustangSpendInput').value);
+  if (isNaN(val) || val <= 0) return;
+  state.mustangSpent += val;
+  logExpense('🚛', 'Mustang Diesel', val, 'expense', 'mustang');
+  document.getElementById('mustangSpendInput').value = '';
+  saveState();
+  renderMustang();
+}
+
+// ===================== CHEERS =====================
+const cheers = [
+  { emoji:'💪', title:'You\'ve got this!', text:'Every peso paid is a step toward freedom. Keep going, Joyce & Emil! 🌸' },
+  { emoji:'🌸', title:'Progress is Progress!', text:'The fact that you\'re tracking means you\'re already ahead of where you were. Proud of you both!' },
+  { emoji:'🔥', title:'On Fire!', text:'The next 3 months are the hardest. After August, ₱39,713/mo gets freed up. The light is real! 💡' },
+  { emoji:'🐾', title:'For the fur babies!', text:'Keep going — your dogs\' vaccines are waiting on the other side of this! 🐕💕' },
+  { emoji:'🚗', title:'Almost there!', text:'Your car will be yours — no bank\'s — by August 2029. Every payment is equity! 🙌' },
+  { emoji:'✨', title:'Small steps, big dreams!', text:'You went from zero visibility to full financial clarity today. That\'s HUGE. 🌟' },
+];
+let cheerIdx = 0;
+function rotateCheer() {
+  cheerIdx = (cheerIdx + 1) % cheers.length;
+  const c = cheers[cheerIdx];
+  const box = document.getElementById('cheerBox');
+  // Fade out
+  box.style.transition = 'opacity 0.3s ease';
+  box.style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('cheerEmoji').textContent = c.emoji;
+    document.getElementById('cheerTitle').textContent = c.title;
+    document.getElementById('cheerText').innerHTML = c.text.replace(/\n\n/g, '<br><br>');
+    // Update dot indicators
+    document.querySelectorAll('.verse-dot').forEach((d, i) => {
+      d.style.background = i === cheerIdx ? 'var(--pink)' : 'rgba(255,107,157,0.25)';
+    });
+    // Fade back in
+    box.style.opacity = '1';
+  }, 320);
+}
+document.getElementById('cheerBox').addEventListener('click', rotateCheer);
+// Auto-rotate verse every 30 seconds
+setInterval(rotateCheer, 30000);
+
+// ===================== TABS =====================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['home','debts','bills','charts','goals','history','income'];
+  // History filter tab names including tithes and transfer
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (name === 'charts') setTimeout(renderCharts, 100);
+}
+
+// ===================== HOME =====================
+function initVerseDots() {
+  const dotsEl = document.getElementById('verseDots');
+  if (!dotsEl) return;
+  // Use actual cheers array length
+  const total = cheers.length;
+  dotsEl.innerHTML = Array.from({length: total}, (_, i) =>
+    `<div class="verse-dot" style="width:6px;height:6px;border-radius:50%;background:${i===0?'var(--pink)':'rgba(255,107,157,0.25)'};transition:background 0.3s;cursor:pointer;" onclick="jumpToVerse(${i})"></div>`
+  ).join('');
+}
+
+function jumpToVerse(idx) {
+  cheerIdx = idx - 1; // rotateCheer will increment by 1
+  rotateCheer();
+}
+
+function renderHome() {
+  const paid = state.totalPaid;
+  const total = totalInitial();
+  const remaining = totalDebt();
+  document.getElementById('totalDebtNum').textContent = fmt(remaining);
+  document.getElementById('totalPaidNum').textContent = fmt(paid);
+  document.getElementById('overallPaidLabel').textContent = fmt(paid) + ' paid';
+  const p = pct(paid, total);
+  document.getElementById('overallBar').style.width = p + '%';
+  document.getElementById('overallPct').textContent = p + '% free ' + (p > 50 ? '🌟' : p > 25 ? '🌿' : '🌱');
+}
+
+// ===================== DEBTS =====================
+function renderDebts() {
+  const list = document.getElementById('debtList');
+  const progList = document.getElementById('debtProgressList');
+  list.innerHTML = '';
+  progList.innerHTML = '';
+
+  state.debts.forEach(d => {
+    const paid = d.initial - d.balance;
+    const p = pct(paid, d.initial);
+
+    // Progress bar
+    const progEl = document.createElement('div');
+    progEl.className = 'prog-item';
+    progEl.innerHTML = `
+      <div class="prog-header">
+        <span class="prog-name">${d.emoji} ${d.name}</span>
+        <span class="prog-vals">${fmt(d.balance)} left</span>
+      </div>
+      <div class="prog-track">
+        <div class="prog-fill" style="width:${p}%; background: linear-gradient(90deg, ${d.color}, ${d.color}aa);"></div>
+      </div>
+      <div class="prog-pct">${p}% paid off · ${fmt(paid)} paid so far</div>
+    `;
+    progList.appendChild(progEl);
+
+    // Debt row with inline payment input
+    const el = document.createElement('div');
+    el.className = 'debt-row';
+    el.style.flexWrap = 'wrap';
+    el.innerHTML = `
+      <div class="debt-emoji">${d.emoji}</div>
+      <div class="debt-info">
+        <div class="debt-name">${d.name}</div>
+        <div class="debt-meta">${d.note}</div>
+      </div>
+      <div class="debt-right">
+        <div class="debt-bal">${fmt(d.balance)}</div>
+        <div class="debt-monthly">${fmt(d.monthly)}/mo</div>
+      </div>
+      <div style="width:100%; display:flex; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
+        <input
+          type="number"
+          id="pay_${d.id}"
+          placeholder="Amount paid (₱)"
+          style="flex:1; padding:9px 12px; border:2px solid var(--border); border-radius:12px; font-size:13px; font-family:Nunito,sans-serif; font-weight:700; color:var(--text); outline:none;"
+          onfocus="this.style.borderColor='var(--pink)'"
+          onblur="this.style.borderColor='var(--border)'"
+        />
+        <button
+          onclick="logPayment('${d.id}')"
+          style="background:linear-gradient(135deg,${d.color},${d.color}cc); border:none; border-radius:12px; color:white; font-weight:800; font-family:Nunito,sans-serif; font-size:13px; padding:9px 16px; cursor:pointer; white-space:nowrap; box-shadow:0 3px 10px ${d.color}55; transition:transform 0.15s;"
+          onmouseover="this.style.transform='scale(1.05)'"
+          onmouseout="this.style.transform='scale(1)'"
+        >💸 Pay</button>
+      </div>
+    `;
+    list.appendChild(el);
+  });
+
+  // Edit select
+  const sel = document.getElementById('editDebtSelect');
+  sel.innerHTML = state.debts.map(d => `<option value="${d.id}">${d.emoji} ${d.name}</option>`).join('');
+}
+
+// ===================== LOG PAYMENT =====================
+function logPayment(debtId) {
+  const input = document.getElementById('pay_' + debtId);
+  const amount = parseFloat(input.value);
+  if (isNaN(amount) || amount <= 0) {
+    input.style.borderColor = '#e53e3e';
+    input.placeholder = 'Enter a valid amount!';
+    setTimeout(() => {
+      input.style.borderColor = 'var(--border)';
+      input.placeholder = 'Amount paid (₱)';
+    }, 1500);
+    return;
+  }
+
+  const debt = state.debts.find(d => d.id === debtId);
+  if (!debt) return;
+
+  debt.balance = Math.max(0, debt.balance - amount);
+  state.totalPaid += amount;
+  logExpense(debt.emoji, 'Debt payment: ' + debt.name, amount, 'debtpay', debt.id);
+
+  input.value = '';
+  saveState();
+  renderDebts();
+  renderHome();
+  renderHistory();
+  confetti();
+  showToast(`${debt.emoji} ${fmt(amount)} logged for ${debt.name}! New balance: ${fmt(debt.balance)}`);
+  if (debt.balance === 0) setTimeout(() => showToast('🎊 ' + debt.name + ' is FULLY PAID OFF! 🎊'), 1000);
+}
+
+// ===================== TOAST =====================
+function showToast(msg) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = `
+      position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+      background:var(--dark); color:white; padding:12px 20px; border-radius:14px;
+      font-size:13px; font-weight:700; font-family:Nunito,sans-serif;
+      z-index:9999; max-width:320px; text-align:center;
+      box-shadow:0 4px 20px rgba(0,0,0,0.25);
+      transition:opacity 0.3s; opacity:0;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
+
+// ===================== PAYMENT HISTORY =====================
+// ===================== UNDO HISTORY =====================
+let _pendingUndoId = null;
+
+function undoIncome(incomeId) {
+  const entry = (state.incomeLog || []).find(e => e.id === incomeId);
+  if (!entry) return;
+  _pendingUndoId = incomeId;
+  document.getElementById('undoModalDesc').innerHTML =
+    '<strong>Income: ' + (entry.source || '') + '</strong><br>' +
+    '+' + fmt(entry.amount) + ' · logged by ' + (entry.name || 'Joyce') +
+    '<br>' + (entry.date || '') + ' at ' + (entry.time || '') +
+    '<br><br>This will remove this income entry and update your available balance.';
+  document.getElementById('undoModal').style.display = 'flex';
+  document.getElementById('undoConfirmBtn').onclick = () => {
+    state.incomeLog = state.incomeLog.filter(e => e.id !== incomeId);
+    document.getElementById('undoModal').style.display = 'none';
+    saveState();
+    renderIncome();
+    renderHome();
+    renderHistory();
+    showToast('↩️ Income entry removed!');
+  };
+}
+
+function confirmUndo(entryId) {
+  const entry = (state.paymentHistory || []).find(h => h.id === entryId);
+  if (!entry) return;
+  _pendingUndoId = entryId;
+  document.getElementById('undoModalDesc').innerHTML =
+    '<strong>' + (entry.description || entry.debt || '') + '</strong><br>' +
+    fmt(entry.amount) + ' · logged by ' + (entry.name || 'Joyce') +
+    '<br>' + (entry.date || '') + ' at ' + (entry.time || '') +
+    '<br><br>This will reverse the amount and update all balances.';
+  document.getElementById('undoModal').style.display = 'flex';
+  document.getElementById('undoConfirmBtn').onclick = () => undoEntry(entryId);
+}
+
+function undoEntry(entryId) {
+  document.getElementById('undoModal').style.display = 'none';
+  const idx = (state.paymentHistory || []).findIndex(h => h.id === entryId);
+  if (idx === -1) return;
+  const entry = state.paymentHistory[idx];
+
+  // Reverse the effect based on type and ref
+  if (entry.type === 'bill' && entry.ref) {
+    // Reverse bill payment — mark bill unpaid, restore debt balance
+    const bill = state.bills.find(b => b.id === entry.ref);
+    if (bill && bill.paid) {
+      bill.paid = false;
+      const debtId = BILL_DEBT_MAP[bill.id];
+      if (debtId) {
+        const debt = state.debts.find(d => d.id === debtId);
+        if (debt) debt.balance = Math.min(debt.initial, debt.balance + bill.amount);
+      }
+      state.totalPaid = Math.max(0, state.totalPaid - bill.amount);
+    }
+  } else if (entry.type === 'expense' && entry.ref === 'food') {
+    state.foodSpent = Math.max(0, state.foodSpent - entry.amount);
+  } else if (entry.type === 'expense' && entry.ref === 'appa') {
+    state.appaSpent = Math.max(0, state.appaSpent - entry.amount);
+  } else if (entry.type === 'expense' && entry.ref === 'mustang') {
+    state.mustangSpent = Math.max(0, state.mustangSpent - entry.amount);
+  } else if (entry.type === 'other' && entry.ref) {
+    state.otherExpenses = (state.otherExpenses||[]).filter(e => e.id !== entry.ref);
+    renderOtherExpenses();
+  } else if (entry.type === 'income' && entry.ref) {
+    state.incomeLog = (state.incomeLog||[]).filter(e => e.id !== entry.ref);
+    renderIncome();
+  } else if (entry.type === 'savings' || entry.type === 'goalsave') {
+    state.savings = Math.max(0, (state.savings || 0) - entry.amount);
+    if (entry.type === 'goalsave' && entry.ref) {
+      const g = state.goals.find(g => g.id === entry.ref);
+      if (g) g.saved = Math.max(0, g.saved - entry.amount);
+      renderGoals();
+    }
+    renderIncome();
+  } else if (entry.type === 'debtpay' && entry.ref) {
+    const debt = state.debts.find(d => d.id === entry.ref);
+    if (debt) debt.balance = Math.min(debt.initial, debt.balance + entry.amount);
+    state.totalPaid = Math.max(0, state.totalPaid - entry.amount);
+  }
+
+  // Remove entry from history
+  state.paymentHistory.splice(idx, 1);
+
+  saveState();
+  renderAll();
+  showToast('↩️ Entry undone successfully!');
+}
+
+let _historyFilter = 'all';
+
+function filterHistory(type) {
+  _historyFilter = type;
+  // Update button styles
+  ['all','payment','goals','income','expense','tithes','transfer'].forEach(t => {
+    const btn = document.getElementById('hf_' + t);
+    if (!btn) return;
+    if (t === type) {
+      btn.style.background = 'var(--pink)';
+      btn.style.color = 'white';
+      btn.style.border = 'none';
+    } else {
+      btn.style.background = 'white';
+      btn.style.color = 'var(--muted)';
+      btn.style.border = '2px solid var(--border)';
+    }
+  });
+  const titles = {
+    all: '📜 All Activity',
+    payment: '💸 Payments & Bills',
+    goals: '⭐ Goals & Savings',
+    income: '💰 Income',
+    expense: '🧾 Expenses',
+    tithes: '🙏 Tithes & Offering',
+    transfer: '💸 Transfers',
+  };
+  const titleEl = document.getElementById('historyCardTitle');
+  if (titleEl) titleEl.textContent = titles[type] || '📜 All Activity';
+  renderHistory();
+}
+
+function renderHistory() {
+  const el = document.getElementById('paymentHistory');
+  if (!el) return;
+  const allHistory = state.paymentHistory || [];
+
+  // Filter based on selected tab
+  // For income filter — use MERGED list (incomeLog + paymentHistory income entries)
+  if (_historyFilter === 'income') {
+    const phInc = (state.paymentHistory || [])
+      .filter(h => h.type === 'income')
+      .map(h => ({
+        id: h.id,
+        source: h.description ? h.description.replace('Income: ', '') : (h.source || ''),
+        amount: h.amount,
+        name: h.name || 'Joyce',
+        date: h.date || '',
+        time: h.time || '',
+      }));
+    const ilIds2 = new Set((state.incomeLog || []).map(e => e.id));
+    const mergedIncome = [...(state.incomeLog || [])];
+    phInc.forEach(e => { if (!ilIds2.has(e.id)) mergedIncome.push(e); });
+    mergedIncome.sort((a, b) => {
+      const da = new Date((a.date||'') + ' ' + (a.time||''));
+      const db = new Date((b.date||'') + ' ' + (b.time||''));
+      return db - da;
+    });
+    const incomeLog = mergedIncome;
+    if (incomeLog.length === 0) {
+      el.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:13px; padding:20px 0;">No income logged yet! 💰</div>';
+      return;
+    }
+    el.innerHTML = incomeLog.map(h => {
+      if (!h.id) h.id = 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      const isJoyce = (h.name || 'Joyce') === 'Joyce';
+      const nameColor = isJoyce ? 'var(--pink)' : 'var(--blue)';
+      const nameBg = isJoyce ? '#fff0f5' : '#e8f5ff';
+      return `
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--border);">
+        <div style="font-size:20px; flex-shrink:0;">💰</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:13px; font-weight:700;">${h.source || h.description || ''}</div>
+          <div style="display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap;">
+            <span style="font-size:10px; background:${nameBg}; color:${nameColor}; font-weight:800; padding:2px 8px; border-radius:99px;">${h.name || 'Joyce'}</span>
+            <span style="font-size:10px; color:var(--muted);">📅 ${h.date || ''}</span>
+            <span style="font-size:10px; color:var(--muted);">🕐 ${h.time || ''}</span>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0;">
+          <div style="font-family:'Righteous',cursive; font-size:14px; color:var(--mint);">+${fmt(h.amount)}</div>
+          <button onclick="undoIncome('${h.id}')" style="background:#fff0e8; border:1px solid #ffd4b8; border-radius:8px; padding:5px 12px; font-size:11px; font-weight:800; color:var(--peach); cursor:pointer; font-family:Nunito,sans-serif;">↩ Undo</button>
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  const filterMap = {
+    all: () => true,
+    payment: h => ['bill','debtpay'].includes(h.type),
+    goals: h => ['goalsave','savings'].includes(h.type),
+    expense: h => ['expense','other'].includes(h.type) && h.ref !== 'tithes',
+    tithes: h => h.type === 'tithes' || (h.type === 'other' && h.ref === 'tithes'),
+    transfer: h => h.type === 'transfer',
+  };
+  const history = allHistory.filter(filterMap[_historyFilter] || (() => true));
+
+  if (history.length === 0) {
+    el.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:13px; padding:20px 0;">No entries in this category yet! 🌸</div>';
+    return;
+  }
+  el.innerHTML = history.map(h => {
+    const isJoyce = (h.name || '') === 'Joyce';
+    const nameColor = isJoyce ? 'var(--pink)' : 'var(--blue)';
+    const nameBg = isJoyce ? '#fff0f5' : '#e8f5ff';
+    // Ensure every entry has an id for undo
+    if (!h.id) h.id = 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const currentUser = getUserName();
+    const canUndo = h.type !== 'undo' && (!h.name || h.name === currentUser);
+    const lockedMsg = h.name && h.name !== currentUser ? `<span style="font-size:10px;color:var(--muted);font-style:italic;">logged by ${h.name}</span>` : '';
+    return `
+    <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--border);">
+      <div style="font-size:20px; flex-shrink:0;">${h.emoji || '💸'}</div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:13px; font-weight:700;">${h.description || h.debt || ''}</div>
+        <div style="display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap;">
+          <span style="font-size:10px; background:${nameBg}; color:${nameColor}; font-weight:800; padding:2px 8px; border-radius:99px;">${h.name || 'Joyce'}</span>
+          <span style="font-size:10px; color:var(--muted);">${h.date || ''}</span>
+          <span style="font-size:10px; color:var(--muted);">${h.time || ''}</span>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0;">
+        <div style="font-family:'Righteous',cursive; font-size:14px; color:var(--mint);">${fmt(h.amount)}</div>
+        ${canUndo ? `<button onclick="confirmUndo('${h.id}')" style="background:#fff0e8; border:none; border-radius:8px; padding:5px 12px; font-size:11px; font-weight:800; color:var(--peach); cursor:pointer; font-family:Nunito,sans-serif; border:1px solid #ffd4b8;">↩ Undo</button>` : '<span style="font-size:10px;color:var(--muted);">↩ undone</span>'}
+      </div>
+    </div>
+  `}).join('');
+}
+
+// ===================== BILLS =====================
+function renderBills() {
+  const urgentEl = document.getElementById('urgentBills');
+  const allEl = document.getElementById('allBills');
+  const paidEl = document.getElementById('paidBillsList');
+  const paidCard = document.getElementById('paidBillsCard');
+  urgentEl.innerHTML = '';
+  allEl.innerHTML = '';
+  paidEl.innerHTML = '';
+
+  const now = new Date();
+  const today = now.getDate();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const unpaid = state.bills.filter(b => !b.paid && b.amount > 0).sort((a,b) => a.date - b.date);
+  const paid = state.bills.filter(b => b.paid && b.amount > 0).sort((a,b) => a.date - b.date);
+
+  // Unpaid bills
+  unpaid.forEach(b => {
+    const daysLeft = b.date - today;
+    // Real days left accounting for month rollover
+    const _nowR = new Date();
+    const _dueThisMonth = new Date(_nowR.getFullYear(), _nowR.getMonth(), b.date);
+    const _dueNextMonth = new Date(_nowR.getFullYear(), _nowR.getMonth() + 1, b.date);
+    const _dueDateR = _dueThisMonth >= _nowR ? _dueThisMonth : _dueNextMonth;
+    const daysLeft2 = Math.ceil((_dueDateR - _nowR) / (1000 * 60 * 60 * 24));
+    const cls = b.urgent && daysLeft2 <= 0 ? 'urgent' : daysLeft2 === 0 ? 'urgent' : daysLeft2 <= 5 ? 'warning' : 'ok';
+    const el = makeBillEl(b, cls, daysLeft, false);
+    if (b.urgent) urgentEl.appendChild(el.cloneNode(true));
+    allEl.appendChild(el);
+  });
+
+  if (unpaid.length === 0) {
+    allEl.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--mint);font-weight:800;font-size:14px;">🎉 All bills paid this month!</div>';
+  }
+  if (urgentEl.children.length === 0) {
+    urgentEl.innerHTML = '<div style="text-align:center;padding:16px 0;color:var(--mint);font-weight:700;font-size:13px;">✅ No urgent bills!</div>';
+  }
+
+  // Paid bills
+  if (paid.length > 0) {
+    paidCard.style.display = 'block';
+    paid.forEach(b => {
+      const el = makeBillEl(b, 'ok', 0, true);
+      paidEl.appendChild(el);
+    });
+    const paidTotal = paid.reduce((sum, b) => sum + b.amount, 0);
+    document.getElementById('paidBillsTotal').textContent = fmt(paidTotal);
+  } else {
+    paidCard.style.display = 'none';
+  }
+
+  // Re-attach listeners
+  document.querySelectorAll('.pay-bill-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggleBillPaid(this.dataset.id);
+    });
+  });
+  document.querySelectorAll('.undo-bill-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggleBillPaid(this.dataset.id);
+    });
+  });
+}
+
+function makeBillEl(b, cls, daysLeft, isPaid) {
+  const _now = new Date();
+  const _today = _now.getDate();
+  const _month = _now.getMonth();
+  const _year = _now.getFullYear();
+  // Calculate real days left accounting for month rollover
+  const dueThisMonth = new Date(_year, _month, b.date);
+  const dueNextMonth = new Date(_year, _month + 1, b.date);
+  const dueDateObj = dueThisMonth >= _now ? dueThisMonth : dueNextMonth;
+  const msLeft = dueDateObj - _now;
+  daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+  const el = document.createElement('div');
+  el.className = 'bill-item';
+  if (isPaid) el.style.opacity = '0.75';
+
+  // Find linked debt for progress bar
+  const debtId = BILL_DEBT_MAP[b.id];
+  const debt = debtId ? state.debts.find(d => d.id === debtId) : null;
+  const paidSoFar = debt ? debt.initial - debt.balance : 0;
+  const pctPaid = debt ? parseFloat(pct(paidSoFar, debt.initial)) : 0;
+  const progressBar = debt ? `
+    <div style="margin-top:6px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span style="font-size:10px;color:var(--muted);">Debt progress: ${debt.name}</span>
+        <span style="font-size:10px;font-weight:800;color:${debt.color};">${pctPaid}%</span>
+      </div>
+      <div style="background:#f5edf8;border-radius:99px;height:6px;overflow:hidden;">
+        <div style="height:100%;border-radius:99px;width:${pctPaid}%;background:linear-gradient(90deg,${debt.color},${debt.color}88);transition:width 0.6s ease;"></div>
+      </div>
+    </div>` : '';
+
+  const actionBtn = isPaid
+    ? `<button class="undo-bill-btn" data-id="${b.id}" style="background:#f0f0f0;border:none;border-radius:10px;padding:6px 10px;font-size:11px;font-weight:800;color:#aaa;cursor:pointer;font-family:Nunito,sans-serif;flex-shrink:0;">↩ Undo</button>`
+    : `<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
+        <button class="pay-bill-btn" data-id="${b.id}" style="background:linear-gradient(135deg,var(--mint),var(--blue));border:none;border-radius:10px;padding:7px 14px;font-size:12px;font-weight:800;color:white;cursor:pointer;font-family:Nunito,sans-serif;flex-shrink:0;box-shadow:0 3px 10px rgba(6,214,160,0.3);">💸 Pay</button>
+        <button onclick="openBillEdit('${b.id}')" style="background:#f5edf8;border:none;border-radius:10px;padding:5px 10px;font-size:11px;font-weight:800;color:var(--muted);cursor:pointer;font-family:Nunito,sans-serif;">✏️ Edit</button>
+      </div>`;
+
+  el.innerHTML = `
+    <div class="bill-date-box ${cls}" style="${isPaid ? 'background:#e8f5e9;color:#4caf7d;' : ''}">
+      <div class="bill-date-num">${b.date}</div>
+      <div class="bill-date-mo">MAY</div>
+    </div>
+    <div class="bill-info" style="flex:1;">
+      <div class="bill-name" style="${isPaid ? 'text-decoration:line-through;color:var(--muted);' : ''}">${b.name}</div>
+      <div class="bill-note">${isPaid ? '✅ Paid!' : daysLeft <= 0 ? '⚠️ Due today!' : daysLeft + ' days left'}</div>
+      ${progressBar}
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+      <div class="bill-amount ${isPaid ? 'ok' : cls}" style="${isPaid ? 'color:var(--mint);' : ''}">${fmt(b.amount)}</div>
+      ${actionBtn}
+    </div>
+  `;
+  return el;
+}
+
+function toggleBillPaid(id) {
+  const bill = state.bills.find(b => b.id === id);
+  if (!bill) return;
+
+  if (!bill.paid) {
+    bill.paid = true;
+    // Deduct from linked debt balance
+    const debtId = BILL_DEBT_MAP[id];
+    if (debtId) {
+      const debt = state.debts.find(d => d.id === debtId);
+      if (debt) {
+        debt.balance = Math.max(0, debt.balance - bill.amount);
+      }
+    }
+    state.totalPaid += bill.amount;
+    logExpense('💸', 'Paid: ' + bill.name, bill.amount, 'bill', bill.id);
+    confetti();
+  } else {
+    bill.paid = false;
+    // Re-add to linked debt balance on undo
+    const debtId = BILL_DEBT_MAP[id];
+    if (debtId) {
+      const debt = state.debts.find(d => d.id === debtId);
+      if (debt) {
+        debt.balance = Math.min(debt.initial, debt.balance + bill.amount);
+      }
+    }
+    state.totalPaid = Math.max(0, state.totalPaid - bill.amount);
+    logExpense('↩️', 'Undid: ' + bill.name, bill.amount);
+  }
+
+  saveState();
+  renderBills();
+  renderHome();
+  renderDebts();
+}
+
+// ===================== CHARTS =====================
+let charts = {};
+function renderCharts() {
+  // Donut
+  if (charts.donut) charts.donut.destroy();
+  const ctx1 = document.getElementById('donutChart').getContext('2d');
+  charts.donut = new Chart(ctx1, {
+    type: 'doughnut',
+    data: {
+      labels: state.debts.map(d => d.name),
+      datasets: [{
+        data: state.debts.map(d => d.balance),
+        backgroundColor: state.debts.map(d => d.color),
+        borderWidth: 3,
+        borderColor: '#fff',
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      cutout: '60%',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            font: { family: 'Nunito', weight: '700', size: 11 },
+            padding: 8,
+            boxWidth: 10,
+            generateLabels: (chart) => {
+              const data = chart.data;
+              return data.labels.map((label, i) => ({
+                text: label.length > 18 ? label.substring(0, 16) + '…' : label,
+                fillStyle: data.datasets[0].backgroundColor[i],
+                strokeStyle: '#fff',
+                lineWidth: 2,
+                index: i,
+              }));
+            }
+          }
+        },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.parsed)}` } }
+      }
+    }
+  });
+
+  // Bar - monthly obligations
+  if (charts.bar) charts.bar.destroy();
+  const ctx2 = document.getElementById('barChart').getContext('2d');
+  const categories = ['Fixed Loans/CC', 'Utilities', 'SLoans', 'SPayLater', 'Living'];
+  const amounts = [60801, 9750, 39713, 40320, 38000];
+  charts.bar = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: categories,
+      datasets: [{
+        label: 'Monthly (₱)',
+        data: amounts,
+        backgroundColor: ['#ff6b9d','#ffd166','#e53e3e','#06d6a0','#c77dff'],
+        borderRadius: 10,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.parsed.y)}` } } },
+      scales: {
+        y: { ticks: { callback: v => '₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10} }, grid: { color: '#f0e6f5' } },
+        x: { ticks: { font: { family: 'Nunito', weight: '700', size: 9 }, maxRotation: 30 }, grid: { display: false } }
+      }
+    }
+  });
+
+  // Income vs obligations
+  if (charts.income) charts.income.destroy();
+  const ctx3 = document.getElementById('incomeChart').getContext('2d');
+  charts.income = new Chart(ctx3, {
+    type: 'bar',
+    data: {
+      labels: ['Income', 'Obligations'],
+      datasets: [{
+        data: [145595, 188584],
+        backgroundColor: ['#06d6a0', '#ff6b9d'],
+        borderRadius: 14,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.parsed.x)}` } } },
+      scales: {
+        x: { ticks: { callback: v => '₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10} }, grid: { color: '#f0e6f5' } },
+        y: { ticks: { font: { family: 'Nunito', weight: '700', size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ===================== GOALS =====================
+function renderGoals() {
+  const list = document.getElementById('goalsList');
+  list.innerHTML = '';
+  state.goals.forEach((g, idx) => {
+    const p = pct(g.saved, g.target);
+    const el = document.createElement('div');
+    el.className = 'goal-card';
+    el.innerHTML = `
+      <div class="goal-icon">${g.emoji}</div>
+      <div class="goal-info">
+        <div class="goal-name">${g.name}</div>
+        <div class="goal-bar-bg"><div class="goal-bar-fill" style="width:${p}%"></div></div>
+        <div class="goal-meta">${fmt(g.saved)} of ${fmt(g.target)} · ${p}%</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+        <div class="goal-saved">${fmt(g.saved)}</div>
+        <button class="edit-btn" onclick="addToGoal(${idx})" style="margin-top:2px">+ Add</button>
+        <button class="edit-btn" onclick="openGoalEdit('${g.id}')" style="color:var(--pink);border-color:var(--pink-light);">✏️ Edit</button>
+      </div>
+    `;
+    list.appendChild(el);
+  });
+}
+
+let _addToGoalIdx = null;
+
+function addToGoal(idx) {
+  _addToGoalIdx = idx;
+  const g = state.goals[idx];
+  document.getElementById('addToGoalEmoji').textContent = g.emoji || '⭐';
+  document.getElementById('addToGoalTitle').textContent = g.name;
+  document.getElementById('addToGoalSub').textContent = fmt(g.saved) + ' of ' + fmt(g.target) + ' saved · ' + parseFloat(pct(g.saved, g.target)).toFixed(1) + '%';
+  document.getElementById('addToGoalAmount').value = '';
+  document.getElementById('addToGoalModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('addToGoalAmount').focus(), 300);
+}
+
+function confirmAddToGoal() {
+  const val = parseFloat(document.getElementById('addToGoalAmount').value);
+  if (isNaN(val) || val <= 0) { showToast('Please enter a valid amount!'); return; }
+  const idx = _addToGoalIdx;
+  if (idx === null || !state.goals[idx]) return;
+  state.goals[idx].saved = Math.min(state.goals[idx].target, state.goals[idx].saved + val);
+  logExpense('⭐', 'Saved for: ' + state.goals[idx].name, val, 'goalsave', state.goals[idx].id);
+  state.savings = (state.savings || 0) + val;
+  document.getElementById('addToGoalModal').style.display = 'none';
+  saveState();
+  renderGoals();
+  renderIncome();
+  renderHome();
+  showToast('⭐ ' + fmt(val) + ' saved toward ' + state.goals[idx].name + '!');
+  if (state.goals[idx].saved >= state.goals[idx].target) {
+    setTimeout(() => { showToast('🎊 Goal reached! ' + state.goals[idx].name + ' is DONE! 🎉'); confetti(); }, 500);
+  }
+}
+
+// ===================== MODALS =====================
+function openEditModal() { document.getElementById('editModal').classList.add('open'); }
+function openGoalModal() { document.getElementById('goalModal').classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function saveDebtUpdate() {
+  const id = document.getElementById('editDebtSelect').value;
+  const newBal = parseFloat(document.getElementById('editBalanceInput').value);
+  const paid = parseFloat(document.getElementById('editPaidInput').value) || 0;
+  if (isNaN(newBal)) return alert('Please enter a valid balance!');
+  const debt = state.debts.find(d => d.id === id);
+  if (debt) {
+    debt.balance = newBal;
+    state.totalPaid += paid;
+    saveState();
+    renderHome();
+    renderDebts();
+    closeModal('editModal');
+    if (paid > 0) confetti();
+  }
+}
+
+function saveGoal() {
+  const name = document.getElementById('goalNameInput').value;
+  const target = parseFloat(document.getElementById('goalTargetInput').value);
+  const saved = parseFloat(document.getElementById('goalSavedInput').value) || 0;
+  const emoji = document.getElementById('goalEmojiInput').value || '⭐';
+  if (!name || isNaN(target)) return alert('Please fill in name and target!');
+  state.goals.push({ id: Date.now().toString(), name, target, saved, emoji });
+  saveState();
+  renderGoals();
+  closeModal('goalModal');
+}
+
+// ===================== CONFETTI =====================
+function confetti() {
+  const wrap = document.getElementById('confettiWrap');
+  const colors = ['#ff6b9d','#ffd166','#06d6a0','#c77dff','#118ab2','#ff9a6c'];
+  for (let i = 0; i < 40; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDelay = Math.random() * 1 + 's';
+    el.style.animationDuration = (2 + Math.random() * 2) + 's';
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+}
+
+// ===================== INIT =====================
+function downloadTracker() {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'joyce-emil-tracker.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function renderPaidSummary() {
+  const el = document.getElementById('paidSummary');
+  if (!el) return;
+  const rows = state.debts.map(d => {
+    const paid = d.initial - d.balance;
+    const p = parseFloat(pct(paid, d.initial));
+    return { ...d, paid, p };
+  }).filter(d => d.paid > 0);
+
+  if (rows.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">Log your first payment to see progress! 🌱</div>';
+    return;
+  }
+  el.innerHTML = rows.map(d => `
+    <div class="debt-row" style="align-items:center;">
+      <div style="font-size:20px;">${d.emoji}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;">${d.name}</div>
+        <div style="font-size:10px;color:var(--muted);">${d.p}% paid off</div>
+        <div style="background:#f5edf8;border-radius:99px;height:6px;margin-top:4px;overflow:hidden;">
+          <div style="height:100%;border-radius:99px;width:${d.p}%;background:linear-gradient(90deg,${d.color},${d.color}aa);"></div>
+        </div>
+      </div>
+      <div style="font-family:'Righteous',cursive;font-size:14px;color:var(--mint);text-align:right;">
+        ${fmt(d.paid)}<div style="font-size:10px;color:var(--muted);font-family:Nunito,sans-serif;">paid</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-PH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+// Sync is hardcoded — connect immediately
+// Initialize Firebase
+document.getElementById('setupOverlay').classList.add('hidden');
+initFirebase();
+
+// Smart init sequence
+async function initSync() {
+  setSyncStatus('yellow', 'Loading...');
+  const pulled = await pullFromCloud(true);
+  const hasIncome = (state.incomeLog||[]).length > 0;
+  const hasHistory = (state.paymentHistory||[]).length > 0;
+  if (!hasIncome && !hasHistory) {
+    await recoverKnownData();
+    await pushToCloud();
+    showToast('✅ Data restored & synced! 🌸');
+  } else if (!pulled) {
+    await pushToCloud();
+  }
+  setSyncStatus('green', 'Synced ✓');
+  renderAll();
+  // Real-time listener for Emil updates
+  if (_firebaseRef) {
+    _firebaseRef.on('value', (snapshot) => {
+      if (isSyncing) return;
+      const cloud = snapshot.val();
+      if (!cloud || !cloud.debts) return;
+      const cloudTime = cloud.lastUpdated ? new Date(cloud.lastUpdated) : new Date(0);
+      const localTime = localStorage.getItem('je_lastSync') ? new Date(localStorage.getItem('je_lastSync')) : new Date(0);
+      if (cloudTime > localTime) {
+        state.incomeLog = safeArr(cloud.incomeLog, state.incomeLog);
+        state.paymentHistory = safeArr(cloud.paymentHistory, state.paymentHistory);
+        state.otherExpenses = safeArr(cloud.otherExpenses, state.otherExpenses);
+        state.debts = cloud.debts || state.debts;
+        state.goals = cloud.goals || state.goals;
+        state.bills = cloud.bills || state.bills;
+        state.savings = Math.max(cloud.savings||0, state.savings||0);
+        state.foodSpent = cloud.foodSpent || state.foodSpent || 0;
+        state.appaSpent = cloud.appaSpent || state.appaSpent || 0;
+        state.mustangSpent = cloud.mustangSpent || state.mustangSpent || 0;
+        state.totalPaid = Math.max(cloud.totalPaid||0, state.totalPaid||0);
+        saveLocalOnly();
+        renderAll();
+        setSyncStatus('green', 'Synced ✓');
+        localStorage.setItem('je_lastSync', cloud.lastUpdated || new Date().toISOString());
+        const who = cloud.updatedBy || '';
+        if (who && who !== getUserName()) showToast('🔄 ' + who + ' made changes!');
+      }
+    });
+  }
+}
 
 // ============================================================
-// DATA RECOVERY — Hard reset to exact correct data
-// Version 2.1 — runs once then disables itself
+// DATA RECOVERY — Restore known Apr 29 data if lost
 // ============================================================
 async function recoverKnownData() {
-  // Only run once per version
   if (localStorage.getItem('je_recovery_done') === '3.0') return;
-
-  // EXACT correct income log — no duplicates
-  const correctIncome = [
+  state.incomeLog = [
     { id:'rec_1', source:'Joyce Salary Remaining - BPI', amount:39577, name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
     { id:'rec_2', source:'Joyce Salary Remaining - Security Bank', amount:27570, name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
     { id:'rec_3', source:'To Balance: Food Allowance Adjustment', amount:639, name:'Joyce', date:'Apr 29, 2026', time:'03:35 PM' },
@@ -2383,9 +3257,7 @@ async function recoverKnownData() {
     { id:'rec_8', source:'Emil Maya Savings', amount:286, name:'Emil', date:'Apr 29, 2026', time:'05:07 PM' },
     { id:'rec_9', source:'Emil Cash On Hand', amount:10600, name:'Emil', date:'Apr 29, 2026', time:'05:29 PM' },
   ];
-
-  // EXACT correct payment history
-  const correctHistory = [
+  state.paymentHistory = [
     { id:'ph_rec_1', emoji:'💰', description:'Income: Joyce Salary Remaining - BPI', amount:39577, type:'income', ref:'rec_1', name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
     { id:'ph_rec_2', emoji:'💰', description:'Income: Joyce Salary Remaining - Security Bank', amount:27570, type:'income', ref:'rec_2', name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
     { id:'ph_rec_3', emoji:'💰', description:'Income: To Balance: Food Allowance Adjustment', amount:639, type:'income', ref:'rec_3', name:'Joyce', date:'Apr 29, 2026', time:'03:35 PM' },
@@ -2399,91 +3271,16 @@ async function recoverKnownData() {
     { id:'ph_exp_2', emoji:'💸', description:'Paid: Internet (own)', amount:1909, type:'bill', ref:'b19', name:'Joyce', date:'Apr 29, 2026', time:'03:00 PM' },
     { id:'ph_exp_3', emoji:'💸', description:'Paid: Security Bank CC', amount:3500, type:'debtpay', ref:'secbank', name:'Joyce', date:'Apr 29, 2026', time:'03:00 PM' },
   ];
-
-  // Hard reset to correct data
-  state.incomeLog = correctIncome;
-  state.paymentHistory = correctHistory;
   state.foodSpent = 639;
-  state.totalPaid = 1909 + 3500; // bills paid
-
-  // Fix SecBank balance
+  state.totalPaid = 5409;
   const secbank = state.debts.find(d => d.id === 'secbank');
-  if (secbank) secbank.balance = 34779; // 38279 - 3500
-
+  if (secbank) secbank.balance = 34779;
   localStorage.setItem('je_recovery_done', '3.0');
   saveLocalOnly();
   renderAll();
 }
 
-document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-PH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-
-// Initialize Firebase
-document.getElementById('setupOverlay').classList.add('hidden');
-initFirebase();
-
-// Ask name only once
-if (!localStorage.getItem('je_userName')) {
-  showNameModal();
-}
-
-// Version-based cache reset
-const APP_VERSION = '2.1';
-if (localStorage.getItem('je_app_version') !== APP_VERSION) {
-  localStorage.setItem('je_foodSpent', '0');
-  localStorage.setItem('je_appaSpent', '0');
-  localStorage.setItem('je_mustangSpent', '0');
-  localStorage.setItem('je_app_version', APP_VERSION);
-}
-
-// sync initialized below
-
-// Real-time listener — updates when Emil makes changes!
-setTimeout(() => {
-  if (_firebaseRef) {
-    _firebaseRef.on('value', (snapshot) => {
-      if (isSyncing) return;
-      const cloud = snapshot.val();
-      if (!cloud || !cloud.debts) return;
-      const cloudTime = cloud.lastUpdated ? new Date(cloud.lastUpdated) : new Date(0);
-      const localTime = localStorage.getItem('je_lastSync') ? new Date(localStorage.getItem('je_lastSync')) : new Date(0);
-      if (cloudTime > localTime) {
-        const safeArr = (ca,la) => { ca=ca||[];la=la||[]; if(!ca.length) return la; if(!la.length) return ca; return ca.length>=la.length?ca:la; };
-        state.debts = cloud.debts||state.debts;
-        state.goals = cloud.goals||state.goals;
-        state.bills = cloud.bills||state.bills;
-        state.totalPaid = Math.max(cloud.totalPaid||0,state.totalPaid||0);
-        state.incomeLog = safeArr(cloud.incomeLog, state.incomeLog);
-        state.paymentHistory = safeArr(cloud.paymentHistory, state.paymentHistory);
-        state.otherExpenses = safeArr(cloud.otherExpenses, state.otherExpenses);
-        state.savings = Math.max(cloud.savings||0,state.savings||0);
-        state.foodSpent = cloud.foodSpent||state.foodSpent||0;
-        state.appaSpent = cloud.appaSpent||state.appaSpent||0;
-        state.mustangSpent = cloud.mustangSpent||state.mustangSpent||0;
-        saveLocalOnly();
-        renderAll();
-        setSyncStatus('green', 'Synced ✓');
-        const who = cloud.updatedBy||'';
-        if (who && who !== getUserName()) showSyncBanner('success', '🔄 ' + who + ' made changes!');
-        localStorage.setItem('je_lastSync', cloud.lastUpdated||new Date().toISOString());
-      }
-    });
-  }
-}, 1000);
-
-// Update backup labels
-[1,2,3].forEach(n => {
-  const raw = localStorage.getItem('je_backup_' + n);
-  const el = document.getElementById('backup' + n + 'label');
-  if (el && raw) {
-    try {
-      const b = JSON.parse(raw);
-      const dt = b.backedUpAt ? new Date(b.backedUpAt).toLocaleString('en-PH', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '?';
-      el.textContent = (b.backedUpBy||'?') + ' · ' + dt;
-    } catch(e) { el.textContent = 'available'; }
-  } else if (el) {
-    el.textContent = 'not available';
-  }
-});
+initSync();
 
 renderHome();
 initVerseDots();
@@ -2497,36 +3294,141 @@ renderBills();
 renderGoals();
 renderIncome();
 renderOtherExpenses();
-renderMonthlyTracker();
-
-// Smart init: recover if needed, then sync
-async function initSync() {
-  setSyncStatus('yellow', 'Loading...');
-
-  // Pull from Firebase first
-  const pulled = await pullFromCloud(true);
-  
-  // Check if we actually have income data after pulling
-  const hasIncome = (state.incomeLog||[]).length > 0;
-  const hasHistory = (state.paymentHistory||[]).length > 0;
-  
-  if (!hasIncome && !hasHistory) {
-    // Still empty after pull — run recovery and push to Firebase
-    await recoverKnownData();
-    await pushToCloud();
-    showToast('✅ Data restored! ₱80,492 income synced. 🌸');
-  } else if (!pulled) {
-    // Had local data but Firebase was empty — push to Firebase
-    await pushToCloud();
-  }
-  
-  setSyncStatus('green', 'Synced ✓');
-  renderAll();
-}
-
-localStorage.removeItem('je_recovery_done');
-initSync();
-
 </script>
+
+
+<script>
+// Generate final icon — 3 elongated diamonds, pastel pink/lavender/blue, small elongated center diamond
+(function generateAppIcon() {
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2;
+  const cy = size / 2;
+
+  // Cream background
+  ctx.fillStyle = '#fff5f8';
+  ctx.fillRect(0, 0, size, size);
+
+  // Draw one elongated diamond centered at cx,cy
+  // top, right, bottom, left points
+  function drawDiamond(angleDeg, color, alpha) {
+    const longR = size * 0.425; // tall
+    const shortR = size * 0.135; // narrow
+    const angleRad = angleDeg * Math.PI / 180;
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+
+    // 4 points of diamond before rotation
+    const pts = [
+      [0, -longR],   // top
+      [shortR, 0],   // right
+      [0, longR],    // bottom
+      [-shortR, 0],  // left
+    ];
+
+    // Rotate each point
+    const rotated = pts.map(([x, y]) => [
+      cx + x * cos - y * sin,
+      cy + x * sin + y * cos,
+    ]);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(rotated[0][0], rotated[0][1]);
+    rotated.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 3 diamonds at 0°, 60°, 120° — pastel pink, lavender, pastel blue
+  drawDiamond(0,   '#ffaac8', 0.95); // pastel pink — vertical
+  drawDiamond(60,  '#c77dff', 0.90); // lavender
+  drawDiamond(120, '#74c7e8', 0.90); // pastel blue
+
+  // Small elongated center diamond
+  const cdH = size * 0.048; // height
+  const cdW = size * 0.024; // width
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#fff5f8';
+  ctx.beginPath();
+  ctx.moveTo(cx,       cy - cdH);
+  ctx.lineTo(cx + cdW, cy);
+  ctx.lineTo(cx,       cy + cdH);
+  ctx.lineTo(cx - cdW, cy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  const dataUrl = canvas.toDataURL('image/png');
+  window._appIconDataUrl = dataUrl;
+
+  const iconLink = document.getElementById('appIcon');
+  if (iconLink) iconLink.href = dataUrl;
+
+  const canvas2 = document.createElement('canvas');
+  canvas2.width = 192; canvas2.height = 192;
+  const ctx2 = canvas2.getContext('2d');
+  ctx2.drawImage(canvas, 0, 0, 192, 192);
+  window._appIconDataUrl = canvas2.toDataURL('image/png');
+})();
+</script>
+
+<script>
+// PWA Manifest — injected dynamically
+const manifest = {
+  name: "Freedom Tracker",
+  short_name: "Freedom Tracker",
+  description: "Our personal debt freedom tracker",
+  start_url: ".",
+  display: "standalone",
+  background_color: "#fffbf5",
+  theme_color: "#ff6b9d",
+  orientation: "portrait",
+  icons: [{
+    src: window._appIconDataUrl || '',
+    sizes: "192x192",
+    type: "image/png",
+    purpose: "any maskable"
+  }]
+};
+const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+const manifestUrl = URL.createObjectURL(blob);
+document.getElementById('manifestLink').href = manifestUrl;
+
+// Show iOS install prompt if not already installed
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isInStandaloneMode = window.navigator.standalone;
+if (isIOS && !isInStandaloneMode) {
+  setTimeout(() => {
+    const banner = document.createElement('div');
+    banner.style.cssText = `
+      position:fixed; bottom:0; left:0; right:0; z-index:99999;
+      background:white; border-top:2px solid #f0e6f5;
+      padding:16px 20px 32px; display:flex; align-items:center; gap:12px;
+      box-shadow:0 -4px 20px rgba(180,100,150,0.15);
+      font-family:Nunito,sans-serif;
+      animation: slideUp2 0.4s ease;
+    `;
+    banner.innerHTML = `
+      <div style="font-size:36px;">🌸</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:800;color:#3d2c4a;margin-bottom:3px;">Install Freedom Tracker!</div>
+        <div style="font-size:11px;color:#9b8faa;line-height:1.4;">Tap <strong style="color:#ff6b9d;">Share (□↑)</strong> then <strong style="color:#ff6b9d;">"Add to Home Screen"</strong> to install 🌸</div>
+      </div>
+      <div onclick="this.parentElement.remove()" style="font-size:20px;cursor:pointer;color:#ccc;padding:4px;">✕</div>
+    `;
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 12000);
+  }, 2000);
+}
+</script>
+
 </body>
 </html>
