@@ -574,9 +574,14 @@ function doPost(e){
   <h1>Joyce & Emil</h1>
   <div class="header-sub">Debt Freedom Tracker</div>
   <div class="header-date" id="todayDate"></div>
-  <div class="sync-status" onclick="showSyncInfo()" id="syncStatusBadge">
-    <div class="sync-dot yellow" id="syncDot"></div>
-    <span id="syncStatusText">Not connected</span>
+  <div style="display:flex;gap:8px;align-items:center;margin-top:8px;justify-content:center;">
+    <div class="sync-status" onclick="showSyncInfo()" id="syncStatusBadge" style="margin-top:0;">
+      <div class="sync-dot yellow" id="syncDot"></div>
+      <span id="syncStatusText">Connecting...</span>
+    </div>
+    <button onclick="forcePushAll()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:99px;color:white;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;padding:4px 12px;cursor:pointer;">
+      ☁️ Push Data
+    </button>
   </div>
 </div>
 
@@ -1506,6 +1511,19 @@ async function verifyCloudHasData() {
   } catch(e) { return false; }
 }
 
+function forcePushAll() {
+  setSyncStatus('yellow', 'Pushing...');
+  // Reset recovery flag so it runs again
+  localStorage.removeItem('je_recovery_done');
+  recoverKnownData();
+  setTimeout(() => {
+    pushToCloud().then(() => {
+      setSyncStatus('green', 'Synced ✓');
+      showToast('✅ Data pushed to cloud! ' + fmt((state.incomeLog||[]).reduce((s,e)=>s+e.amount,0)) + ' income synced.');
+    });
+  }, 500);
+}
+
 function showSyncInfo() {
   _manualSyncMode = true;
   showSyncBanner('syncing', '🔄 Syncing...');
@@ -2356,7 +2374,7 @@ function renderMonthlyChart() {
 // ============================================================
 function recoverKnownData() {
   // Only run once per version
-  if (localStorage.getItem('je_recovery_done') === '2.1') return;
+  if (localStorage.getItem('je_recovery_done') === '2.2') return;
 
   // EXACT correct income log — no duplicates
   const correctIncome = [
@@ -2397,7 +2415,7 @@ function recoverKnownData() {
   const secbank = state.debts.find(d => d.id === 'secbank');
   if (secbank) secbank.balance = 34779; // 38279 - 3500
 
-  localStorage.setItem('je_recovery_done', '2.1');
+  localStorage.setItem('je_recovery_done', '2.2');
   saveLocalOnly();
   pushToCloud();
   renderAll();
