@@ -840,8 +840,8 @@ function doPost(e){
 
   <div class="card">
     <div class="card-title">🍩 Debt Breakdown</div>
-    <div class="chart-wrap" style="position:relative; max-height:320px; padding-bottom:8px;">
-      <canvas id="donutChart" style="max-height:320px;"></canvas>
+    <div style="position:relative; width:320px; height:320px; margin:0 auto;">
+      <canvas id="donutChart" style="width:320px !important; height:320px !important;"></canvas>
     </div>
   </div>
 
@@ -2888,9 +2888,9 @@ function renderCharts() {
       }]
     },
     options: {
-      cutout: '60%',
-      responsive: true,
-      maintainAspectRatio: true,
+      cutout: '62%',
+      responsive: false,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
           position: 'bottom',
