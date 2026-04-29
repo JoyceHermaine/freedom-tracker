@@ -598,7 +598,7 @@ function doPost(e){
       <div style="font-family:'Righteous',cursive; font-size:24px; color:var(--mint);" id="availableCash">₱0</div>
       <div style="font-size:10px; color:var(--muted); margin-top:2px;">total money you currently have to allocate</div>
     </div>
-    <button onclick="hardResetAndSync()" style="margin-top:10px;background:rgba(255,107,157,0.12);border:1px dashed var(--pink-light);border-radius:10px;padding:6px 16px;font-size:11px;font-weight:800;color:var(--pink);cursor:pointer;font-family:Nunito,sans-serif;">🔄 Clear Cache & Resync</button>
+
   </div>
 
   <div class="hero-grid">
@@ -2289,12 +2289,22 @@ function addMustangSpend() {
 
 // ===================== CHEERS =====================
 const cheers = [
-  { emoji:'💪', title:'You\'ve got this!', text:'Every peso paid is a step toward freedom. Keep going, Joyce & Emil! 🌸' },
-  { emoji:'🌸', title:'Progress is Progress!', text:'The fact that you\'re tracking means you\'re already ahead of where you were. Proud of you both!' },
-  { emoji:'🔥', title:'On Fire!', text:'The next 3 months are the hardest. After August, ₱39,713/mo gets freed up. The light is real! 💡' },
-  { emoji:'🐾', title:'For the fur babies!', text:'Keep going — your dogs\' vaccines are waiting on the other side of this! 🐕💕' },
-  { emoji:'🚗', title:'Almost there!', text:'Your car will be yours — no bank\'s — by August 2029. Every payment is equity! 🙌' },
-  { emoji:'✨', title:'Small steps, big dreams!', text:'You went from zero visibility to full financial clarity today. That\'s HUGE. 🌟' },
+  { emoji:'✝️', title:'Jeremiah 29:11', text:'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."\n\n— He knew about every peso of this debt before you did. And He already has the way out. 🌸' },
+  { emoji:'💪', title:"You've got this!", text:"Every peso paid is a step toward freedom. The next 3 months are the hardest — but August 2026 is coming and ₱39,713/month gets freed up. The light is real! 💡" },
+  { emoji:'🐾', title:'Philippians 4:19', text:'"And my God will meet all your needs according to the riches of his glory in Christ Jesus."\n\n— Including your fur babies\' vaccines. He sees every small thing too. 🐕💕' },
+  { emoji:'🚗', title:'Deuteronomy 28:12', text:'"The Lord will open the heavens, the storehouse of his bounty... You will lend to many nations but will borrow from none."\n\n— Appa and Mustang will be fully yours. 🚛🌸' },
+  { emoji:'💛', title:'Proverbs 21:5', text:'"The plans of the diligent lead to profit as surely as haste leads to poverty."\n\n— Opening this app every day IS the diligence He\'s talking about. You and Emil are walking in wisdom. 💪' },
+  { emoji:'🌸', title:'Progress is Progress!', text:"The fact that you're tracking means you're already ahead. Every honest entry, every bill paid, every peso saved — it all adds up. Proud of you both! 🌸" },
+  { emoji:'🕊️', title:'Matthew 6:31-33', text:'"Do not worry... your heavenly Father knows that you need them. But seek first his kingdom and his righteousness, and all these things will be given to you as well."\n\n— The food, the gas, the bills — He knows. Seek Him first. 🙏' },
+  { emoji:'⚓', title:'Hebrews 6:19', text:'"We have this hope as an anchor for the soul, firm and secure."\n\n— August 2026 is coming. ₱39,713 freed up every month. The light at the end of this tunnel is real — and God put it there. 💡' },
+  { emoji:'💑', title:'Two are Better than One!', text:"You and Emil doing this together is your greatest asset. Every time Emil logs the diesel and you log the bills, that's teamwork and love in action. 💕" },
+  { emoji:'🌿', title:'Psalm 23:1', text:'"The Lord is my shepherd, I lack nothing."\n\n— Not in your home in Taytay, not in your family, not in your marriage. He is your shepherd, Joyce & Emil. 🏠💕' },
+  { emoji:'✈️', title:'Psalm 37:4', text:'"Take delight in the Lord, and he will give you the desires of your heart."\n\n— Thailand is a desire of your heart. He planted it. Stay faithful — He will bring you there. 🇹🇭🌸' },
+  { emoji:'🌅', title:'Lamentations 3:22-23', text:'"Because of the Lord\'s great love we are not consumed, for his compassions never fail. They are new every morning; great is your faithfulness."\n\n— His mercies reset every morning. Every day is a fresh start. 💛' },
+  { emoji:'🐕', title:'For the Fur Babies!', text:"Keep going — your dogs' vaccines are waiting on the other side of this. Every peso you save is one step closer to keeping them healthy and loved. 🐾💕" },
+  { emoji:'🙌', title:'Luke 16:10', text:'"Whoever can be trusted with very little can also be trusted with much."\n\n— Every honest expense you log, every peso Emil tracks — that\'s faithfulness. Greater blessings are on the way. 🚛💪' },
+  { emoji:'💑', title:'Ecclesiastes 4:9', text:'"Two are better than one, because they have a good return for their labor: If either of them falls down, one can help the other up."\n\n— Not the income, not the L300 — each other. 💕' },
+  { emoji:'🌸', title:'Romans 13:8', text:'"Let no debt remain outstanding, except the continuing debt to love one another."\n\n— This tracker is your act of love — for each other, for your family, for your future. Keep going. 🌸' },
 ];
 let cheerIdx = 0;
 function rotateCheer() {
