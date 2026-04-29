@@ -11,6 +11,8 @@
 <link rel="manifest" id="manifestLink">
 <title>Joyce & Emil 🌸 Debt Freedom Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400&family=Righteous&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 <style>
   :root {
     --pink: #ff6b9d;
@@ -1363,69 +1365,59 @@ let state = {
   otherExpenses: JSON.parse(localStorage.getItem('je_otherExpenses') || '[]'),
 };
 
-// ===================== SYNC =====================
-const SYNC_URL_KEY = 'je_syncUrl';
+// ===================== FIREBASE SYNC =====================
 const SYNC_DEBOUNCE = 1500;
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwtNf6OyipbLdcOzfCjKHTfkxXH4otvHMW0T9RKumhpMMnjBJkppCpyEKFT3KnvZ6k/exec';
 let syncTimer = null;
 let isSyncing = false;
-let _lastPushHash = '';
+let _firebaseDb = null;
+let _firebaseRef = null;
+let _manualSyncMode = false;
 
-function getSyncUrl() {
-  const override = localStorage.getItem(SYNC_URL_KEY);
-  if (override && override !== 'skip' && override.startsWith('https://script.google.com')) return override;
-  return GAS_URL;
-}
+function getSyncUrl() { return 'firebase'; }
 
-// Simple hash to detect if state actually changed
-function stateHash() {
-  return JSON.stringify({
-    incomeLog: state.incomeLog,
-    bills: (state.bills||[]).filter(b=>b.paid).length,
-    totalPaid: state.totalPaid,
-    foodSpent: state.foodSpent,
-    appaSpent: state.appaSpent,
-    mustangSpent: state.mustangSpent,
-    otherExpenses: (state.otherExpenses||[]).length,
-    savings: state.savings,
-    paymentHistory: (state.paymentHistory||[]).length,
-  }).length.toString();
+function initFirebase() {
+  try {
+    const cfg = {
+      apiKey: "AIzaSyCFzpLCNue6gLZcievrtPCvgW-ah7T7TdA",
+      authDomain: "freedom-tracker-19ec6.firebaseapp.com",
+      databaseURL: "https://freedom-tracker-19ec6-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "freedom-tracker-19ec6",
+      appId: "1:492838204627:web:5104211d0e237966f89026"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(cfg);
+    _firebaseDb = firebase.database();
+    _firebaseRef = _firebaseDb.ref('tracker/state');
+    setSyncStatus('green', 'Synced ✓');
+    return true;
+  } catch(e) {
+    console.error('Firebase init:', e);
+    setSyncStatus('red', 'Sync error');
+    return false;
+  }
 }
 
 function setSyncStatus(status, text) {
   const dot = document.getElementById('syncDot');
   const txt = document.getElementById('syncStatusText');
-  if (!dot || !txt) return;
-  dot.className = 'sync-dot ' + status;
-  txt.textContent = text;
+  if (dot) dot.className = 'sync-dot ' + status;
+  if (txt) txt.textContent = text;
 }
 
-let _manualSyncMode = false; // only show banner during manual sync
-
 function showSyncBanner(type, text) {
-  if (!_manualSyncMode) return; // completely silent during auto-sync
+  if (!_manualSyncMode) return;
   const banner = document.getElementById('syncBanner');
   const icon = document.getElementById('syncBannerIcon');
   const bannerText = document.getElementById('syncBannerText');
   if (!banner) return;
   banner.style.display = 'flex';
-  banner.className = 'sync-banner' + (type === 'error' ? ' error' : type === 'syncing' ? ' syncing' : '');
-  icon.textContent = type === 'error' ? '⚠️' : type === 'syncing' ? '🔄' : '✅';
-  bannerText.textContent = text;
-  if (type !== 'syncing') {
-    setTimeout(() => {
-      banner.style.display = 'none';
-      _manualSyncMode = false;
-    }, 3000);
-  }
+  banner.className = 'sync-banner' + (type==='error'?' error':type==='syncing'?' syncing':'');
+  if (icon) icon.textContent = type==='error'?'⚠️':type==='syncing'?'🔄':'✅';
+  if (bannerText) bannerText.textContent = text;
+  if (type !== 'syncing') setTimeout(() => { banner.style.display='none'; _manualSyncMode=false; }, 3000);
 }
 
-async function pushToCloud() {
-  const url = getSyncUrl();
-  if (!url || url === 'skip') return;
-  isSyncing = true;
-
-  const dataToSave = JSON.stringify({
+function getDataToSave() {
+  return {
     debts: state.debts,
     goals: state.goals,
     bills: state.bills,
@@ -1442,111 +1434,95 @@ async function pushToCloud() {
     paymentHistory: state.paymentHistory || [],
     lastUpdated: new Date().toISOString(),
     updatedBy: localStorage.getItem('je_userName') || 'Joyce',
-  });
-
-  let success = false;
-  try {
-    const encoded = encodeURIComponent(dataToSave);
-    const saveUrl = url + '?action=save&k=tracker_state&v=' + encoded;
-    const res = await fetch(saveUrl, { cache: 'no-store' });
-    const text = await res.text();
-    if (text && (text.trim() === 'ok' || text.includes('ok'))) {
-      success = true;
-      _lastPushHash = stateHash();
-      localStorage.setItem('je_lastSync', new Date().toISOString());
-      setSyncStatus('green', 'Synced ✓');
-      // Silent — just update the dot, no banner
-    } else {
-      throw new Error('Bad response: ' + text.substring(0, 50));
-    }
-  } catch(e) {
-    // If GET failed, try POST as fallback
-    try {
-      await fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify({ k: 'tracker_state', v: dataToSave })
-      });
-      // POST no-cors can't confirm — schedule a verify pull in 3s
-      setTimeout(async () => {
-        const verified = await verifyCloudHasData();
-        if (verified) {
-          success = true;
-          setSyncStatus('green', 'Synced ✓');
-        } else {
-          setSyncStatus('red', 'Sync uncertain');
-          // silent
-        }
-      }, 3000);
-    } catch(e2) {
-      setSyncStatus('red', 'Sync failed');
-      // silent
-      console.error('Push error:', e2);
-    }
-  }
-  isSyncing = false;
-  return success;
+  };
 }
 
-// Verify cloud actually has our data
-async function verifyCloudHasData() {
+async function pushToCloud() {
+  if (!_firebaseRef) initFirebase();
+  if (!_firebaseRef) return;
+  isSyncing = true;
   try {
-    const url = getSyncUrl();
-    const res = await fetch(url + '?action=read&k=tracker_state&t=' + Date.now(), { cache: 'no-store' });
-    const text = await res.text();
-    if (!text || text === 'null') return false;
-    const cloud = JSON.parse(text);
-    // Check cloud has income data matching our local
-    const cloudIncomeCount = (cloud.incomeLog || []).length;
-    const localIncomeCount = (state.incomeLog || []).length;
-    return cloudIncomeCount >= localIncomeCount;
+    await _firebaseRef.set(getDataToSave());
+    localStorage.setItem('je_lastSync', new Date().toISOString());
+    setSyncStatus('green', 'Synced ✓');
   } catch(e) {
-    return false;
+    setSyncStatus('red', 'Sync error');
+    console.error('Firebase push:', e);
   }
+  isSyncing = false;
 }
 
 async function pullFromCloud(silent) {
-  const url = getSyncUrl();
-  if (!url || url === 'skip') return false;
-  if (!silent) setSyncStatus('yellow', 'Loading...');
+  if (!_firebaseRef) initFirebase();
+  if (!_firebaseRef) return false;
   try {
-    const res = await fetch(url + '?action=read&k=tracker_state&t=' + Date.now());
-    const text = await res.text();
-    if (!text || text === 'null') return false;
-    const cloud = JSON.parse(text);
-    if (!cloud || !cloud.debts) return false;
-
-    // Merge cloud into state — pull everything
+    const snapshot = await _firebaseRef.once('value');
+    const cloud = snapshot.val();
+    if (!cloud || !cloud.debts) {
+      setSyncStatus('yellow', 'No cloud data');
+      return false;
+    }
+    const safeArr = (ca, la) => {
+      ca = ca||[]; la = la||[];
+      if (ca.length===0) return la;
+      if (la.length===0) return ca;
+      return ca.length >= la.length ? ca : la;
+    };
     state.debts = cloud.debts || state.debts;
     state.goals = cloud.goals || state.goals;
     state.bills = cloud.bills || state.bills;
-    state.totalPaid = cloud.totalPaid || 0;
-    state.foodBudget = cloud.foodBudget || 12000;
+    state.totalPaid = Math.max(cloud.totalPaid||0, state.totalPaid||0);
+    state.foodBudget = cloud.foodBudget || state.foodBudget || 12000;
     state.foodSpent = cloud.foodSpent || 0;
-    state.appaBudget = cloud.appaBudget || 3000;
+    state.appaBudget = cloud.appaBudget || state.appaBudget || 3000;
     state.appaSpent = cloud.appaSpent || 0;
-    state.mustangBudget = cloud.mustangBudget || 20000;
+    state.mustangBudget = cloud.mustangBudget || state.mustangBudget || 20000;
     state.mustangSpent = cloud.mustangSpent || 0;
-    state.paymentHistory = cloud.paymentHistory || [];
-    state.incomeLog = cloud.incomeLog || [];
-    state.otherExpenses = cloud.otherExpenses || [];
-    state.savings = cloud.savings || 0;
-
-    // Save locally too
+    state.incomeLog = safeArr(cloud.incomeLog, state.incomeLog);
+    state.paymentHistory = safeArr(cloud.paymentHistory, state.paymentHistory);
+    state.otherExpenses = safeArr(cloud.otherExpenses, state.otherExpenses);
+    state.savings = Math.max(cloud.savings||0, state.savings||0);
     saveLocalOnly();
     renderAll();
-
-    const who = cloud.updatedBy || 'Someone';
-    const when = cloud.lastUpdated ? new Date(cloud.lastUpdated).toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'}) : '';
     setSyncStatus('green', 'Synced ✓');
-    // silent
+    if (!silent) {
+      const who = cloud.updatedBy || '';
+      const when = cloud.lastUpdated ? new Date(cloud.lastUpdated).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}) : '';
+      if (who) showSyncBanner('success', '✅ Synced · ' + who + ' · ' + when);
+    }
     return true;
   } catch(e) {
     setSyncStatus('red', 'Sync error');
-    // silent
+    console.error('Firebase pull:', e);
     return false;
   }
 }
+
+async function verifyCloudHasData() {
+  try {
+    if (!_firebaseRef) return false;
+    const snap = await _firebaseRef.child('incomeLog').once('value');
+    return (snap.val()||[]).length >= (state.incomeLog||[]).length;
+  } catch(e) { return false; }
+}
+
+function showSyncInfo() {
+  _manualSyncMode = true;
+  showSyncBanner('syncing', '🔄 Syncing...');
+  pushToCloud().then(() => pullFromCloud(false));
+}
+
+async function testAndSync() {
+  _manualSyncMode = true;
+  showSyncBanner('syncing', '🔄 Manual sync...');
+  await pushToCloud();
+  await pullFromCloud(false);
+  showSyncBanner('success', '✅ Done!');
+}
+
+function connectSync() {}
+function skipSync() { document.getElementById('setupOverlay').classList.add('hidden'); }
+function copyGASCode() {}
 
 function saveLocalOnly() {
   localStorage.setItem('je_debts', JSON.stringify(state.debts));
@@ -2430,9 +2406,9 @@ function recoverKnownData() {
 
 document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-PH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
-// Always hardcoded sync — no setup needed
+// Initialize Firebase
 document.getElementById('setupOverlay').classList.add('hidden');
-setSyncStatus('green', 'Synced ✓');
+initFirebase();
 
 // Ask name only once
 if (!localStorage.getItem('je_userName')) {
@@ -2448,9 +2424,41 @@ if (localStorage.getItem('je_app_version') !== APP_VERSION) {
   localStorage.setItem('je_app_version', APP_VERSION);
 }
 
-// Auto pull on open, then every 30s
+// Pull latest on open
 pullFromCloud(true);
-setInterval(() => { if (!isSyncing) pullFromCloud(true); }, 30000);
+
+// Real-time listener — updates when Emil makes changes!
+setTimeout(() => {
+  if (_firebaseRef) {
+    _firebaseRef.on('value', (snapshot) => {
+      if (isSyncing) return;
+      const cloud = snapshot.val();
+      if (!cloud || !cloud.debts) return;
+      const cloudTime = cloud.lastUpdated ? new Date(cloud.lastUpdated) : new Date(0);
+      const localTime = localStorage.getItem('je_lastSync') ? new Date(localStorage.getItem('je_lastSync')) : new Date(0);
+      if (cloudTime > localTime) {
+        const safeArr = (ca,la) => { ca=ca||[];la=la||[]; if(!ca.length) return la; if(!la.length) return ca; return ca.length>=la.length?ca:la; };
+        state.debts = cloud.debts||state.debts;
+        state.goals = cloud.goals||state.goals;
+        state.bills = cloud.bills||state.bills;
+        state.totalPaid = Math.max(cloud.totalPaid||0,state.totalPaid||0);
+        state.incomeLog = safeArr(cloud.incomeLog, state.incomeLog);
+        state.paymentHistory = safeArr(cloud.paymentHistory, state.paymentHistory);
+        state.otherExpenses = safeArr(cloud.otherExpenses, state.otherExpenses);
+        state.savings = Math.max(cloud.savings||0,state.savings||0);
+        state.foodSpent = cloud.foodSpent||state.foodSpent||0;
+        state.appaSpent = cloud.appaSpent||state.appaSpent||0;
+        state.mustangSpent = cloud.mustangSpent||state.mustangSpent||0;
+        saveLocalOnly();
+        renderAll();
+        setSyncStatus('green', 'Synced ✓');
+        const who = cloud.updatedBy||'';
+        if (who && who !== getUserName()) showSyncBanner('success', '🔄 ' + who + ' made changes!');
+        localStorage.setItem('je_lastSync', cloud.lastUpdated||new Date().toISOString());
+      }
+    });
+  }
+}, 1000);
 
 // Update backup labels
 [1,2,3].forEach(n => {
