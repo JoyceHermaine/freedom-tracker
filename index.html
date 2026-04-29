@@ -2435,19 +2435,7 @@ if (localStorage.getItem('je_app_version') !== APP_VERSION) {
   localStorage.setItem('je_app_version', APP_VERSION);
 }
 
-// Smart init: pull first, if empty run recovery and push
-async function initSync() {
-  const pulled = await pullFromCloud(true);
-  if (!pulled) {
-    // Cloud is empty — run recovery to restore known data then push
-    console.log('Cloud empty, running recovery...');
-    await recoverKnownData();
-    await pushToCloud();
-    setSyncStatus('green', 'Synced ✓');
-    showToast('✅ Data restored & synced to cloud! 🌸');
-  }
-}
-initSync();
+// sync initialized below
 
 // Real-time listener — updates when Emil makes changes!
 setTimeout(() => {
@@ -2511,32 +2499,31 @@ renderIncome();
 renderOtherExpenses();
 renderMonthlyTracker();
 
-// Smart init: always try to recover if data is missing
+// Smart init: recover if needed, then sync
 async function initSync() {
   setSyncStatus('yellow', 'Loading...');
-  
-  // First check if we have local data
-  const hasLocalData = (state.incomeLog||[]).length > 0 || (state.paymentHistory||[]).length > 0;
-  
-  if (!hasLocalData) {
-    // No local data — restore known data first
-    await recoverKnownData();
-  }
-  
-  // Now try to pull from Firebase
+
+  // Pull from Firebase first
   const pulled = await pullFromCloud(true);
   
-  if (!pulled) {
-    // Firebase is empty — push our local/recovered data up
+  // Check if we actually have income data after pulling
+  const hasIncome = (state.incomeLog||[]).length > 0;
+  const hasHistory = (state.paymentHistory||[]).length > 0;
+  
+  if (!hasIncome && !hasHistory) {
+    // Still empty after pull — run recovery and push to Firebase
+    await recoverKnownData();
     await pushToCloud();
-    showToast('✅ Data pushed to Firebase! 🌸');
+    showToast('✅ Data restored! ₱80,492 income synced. 🌸');
+  } else if (!pulled) {
+    // Had local data but Firebase was empty — push to Firebase
+    await pushToCloud();
   }
   
   setSyncStatus('green', 'Synced ✓');
   renderAll();
 }
 
-// Clear recovery flag so it always runs fresh
 localStorage.removeItem('je_recovery_done');
 initSync();
 
