@@ -2118,6 +2118,35 @@ function renderIncome() {
 }
 
 // ============================================================
+// TAB NAVIGATION
+// ============================================================
+function switchTab(tab) {
+  // Hide all pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  
+  // Show selected page
+  const page = document.getElementById('page-' + tab);
+  if (page) page.classList.add('active');
+  
+  // Highlight selected tab
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(t => {
+    if (t.getAttribute('onclick') && t.getAttribute('onclick').includes("'" + tab + "'")) {
+      t.classList.add('active');
+    }
+  });
+
+  // Render charts when charts tab is opened
+  if (tab === 'charts') renderCharts();
+  if (tab === 'history') renderHistory();
+  if (tab === 'income') renderIncome();
+  if (tab === 'goals') renderGoals();
+  if (tab === 'bills') renderBills();
+  if (tab === 'debts') renderDebts();
+}
+
+// ============================================================
 // EXPORT TO CSV
 // ============================================================
 function exportToCSV() {
@@ -2437,14 +2466,16 @@ if (localStorage.getItem('je_app_version') !== APP_VERSION) {
 
 // Smart init: pull first, if empty run recovery and push
 async function initSync() {
+  setSyncStatus('yellow', 'Loading...');
   const pulled = await pullFromCloud(true);
   if (!pulled) {
-    // Cloud is empty — run recovery to restore known data then push
-    console.log('Cloud empty, running recovery...');
+    // Cloud is empty — restore known data and push
     await recoverKnownData();
     await pushToCloud();
     setSyncStatus('green', 'Synced ✓');
-    showToast('✅ Data restored & synced to cloud! 🌸');
+    showToast('✅ Data restored & synced! 🌸');
+  } else {
+    setSyncStatus('green', 'Synced ✓');
   }
 }
 initSync();
