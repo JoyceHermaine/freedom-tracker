@@ -574,14 +574,9 @@ function doPost(e){
   <h1>Joyce & Emil</h1>
   <div class="header-sub">Debt Freedom Tracker</div>
   <div class="header-date" id="todayDate"></div>
-  <div style="display:flex;gap:8px;align-items:center;margin-top:8px;justify-content:center;">
-    <div class="sync-status" onclick="showSyncInfo()" id="syncStatusBadge" style="margin-top:0;">
-      <div class="sync-dot yellow" id="syncDot"></div>
-      <span id="syncStatusText">Connecting...</span>
-    </div>
-    <button onclick="forcePushAll()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:99px;color:white;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;padding:4px 12px;cursor:pointer;">
-      ☁️ Push Data
-    </button>
+  <div class="sync-status" onclick="showSyncInfo()" id="syncStatusBadge">
+    <div class="sync-dot yellow" id="syncDot"></div>
+    <span id="syncStatusText">Connecting...</span>
   </div>
 </div>
 
@@ -2372,7 +2367,7 @@ function renderMonthlyChart() {
 // DATA RECOVERY — Hard reset to exact correct data
 // Version 2.1 — runs once then disables itself
 // ============================================================
-function recoverKnownData() {
+async function recoverKnownData() {
   // Only run once per version
   if (localStorage.getItem('je_recovery_done') === '2.2') return;
 
@@ -2417,9 +2412,7 @@ function recoverKnownData() {
 
   localStorage.setItem('je_recovery_done', '2.2');
   saveLocalOnly();
-  pushToCloud();
   renderAll();
-  showToast('✅ Data fully restored! Total income: ₱80,492 🌸');
 }
 
 document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-PH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
@@ -2442,8 +2435,19 @@ if (localStorage.getItem('je_app_version') !== APP_VERSION) {
   localStorage.setItem('je_app_version', APP_VERSION);
 }
 
-// Pull latest on open
-pullFromCloud(true);
+// Smart init: pull first, if empty run recovery and push
+async function initSync() {
+  const pulled = await pullFromCloud(true);
+  if (!pulled) {
+    // Cloud is empty — run recovery to restore known data then push
+    console.log('Cloud empty, running recovery...');
+    await recoverKnownData();
+    await pushToCloud();
+    setSyncStatus('green', 'Synced ✓');
+    showToast('✅ Data restored & synced to cloud! 🌸');
+  }
+}
+initSync();
 
 // Real-time listener — updates when Emil makes changes!
 setTimeout(() => {
