@@ -1979,10 +1979,10 @@ function renderIncome() {
       // Last 3 always from full merged list
 
       // Show latest 3 in Income tab — always show if we have entries
-      if (merged.length === 0) {
-        listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">No income logged today. 💰<br><span style="font-size:11px;">Tap + Log New Income to add!</span></div>';
-      } else {
       const display = merged.slice(0, 3);
+      if (merged.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">No income logged yet. 💰<br><span style="font-size:11px;">Tap + Log New Income to add!</span></div>';
+      } else {
       const hasMore = merged.length > 3;
 
       listEl.innerHTML = display.map(e => {
@@ -2005,7 +2005,7 @@ function renderIncome() {
           </div>
         </div>`;
       }).join('') + (hasMore ? `<div style="text-align:center;font-size:12px;color:var(--pink);font-weight:800;padding:10px 0;cursor:pointer;" onclick="switchTab('history');filterHistory('income');">See all ${merged.length} income entries in History →</div>` : '');
-      } // end else
+      }
 
       // Fix total to use merged list
       const mergedTotal = merged.reduce((s, e) => s + (e.amount || 0), 0);
