@@ -601,6 +601,27 @@ function doPost(e){
 
   </div>
 
+  <!-- MONTHLY SUMMARY CARD -->
+  <div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div class="card-title" style="margin-bottom:0;">📅 This Month vs Last</div>
+      <span id="currentMonthLabel" style="font-size:11px;font-weight:800;color:var(--muted);"></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="monthCompareGrid">
+      <div style="background:linear-gradient(135deg,#fff0f5,#ffe0ee);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:10px;font-weight:800;color:var(--pink);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;" id="thisMonthLabel">This Month</div>
+        <div style="font-family:'Righteous',cursive;font-size:20px;color:var(--dark);" id="thisMonthTotal">₱0</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">total spent</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#f0f0ff,#e8e0ff);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:10px;font-weight:800;color:var(--lavender);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;" id="lastMonthLabel">Last Month</div>
+        <div style="font-family:'Righteous',cursive;font-size:20px;color:var(--dark);" id="lastMonthTotal">₱0</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">total spent</div>
+      </div>
+    </div>
+    <div id="monthDiffNote" style="text-align:center;font-size:11px;font-weight:700;margin-top:10px;color:var(--muted);"></div>
+  </div>
+
   <div class="hero-grid">
     <div class="hero-card pink" data-emoji="💳">
       <div class="hero-label">Total Debt</div>
@@ -856,6 +877,13 @@ function doPost(e){
     <div class="card-title">💚 Income vs Obligations</div>
     <div class="chart-wrap">
       <canvas id="incomeChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📅 Monthly Spending History</div>
+    <div class="chart-wrap">
+      <canvas id="monthlyChart"></canvas>
     </div>
   </div>
 </div>
@@ -1929,16 +1957,26 @@ function renderIncome() {
         const db = new Date((b.date || '') + ' ' + (b.time || ''));
         return db - da;
       });
-      // Apply month filter
+      // Month filter applies to TOTAL display and breakdown, but last 3 shows always
       const _monthFilter = document.getElementById('incomeMonthFilter') ? document.getElementById('incomeMonthFilter').value : 'current';
       const _now2 = new Date();
       const _curMonth = _now2.toLocaleDateString('en-PH', {month:'short'});
       const _curYear = _now2.getFullYear().toString();
-      const filteredMerged = _monthFilter === 'current'
+      // Keep full merged for display of last 3 entries
+      const _filteredForTotal = _monthFilter === 'current'
         ? merged.filter(e => (e.date||'').includes(_curMonth) && (e.date||'').includes(_curYear))
         : merged;
-      merged.length = 0;
-      filteredMerged.forEach(e => merged.push(e));
+      // Update total and vs obligations based on filter
+      const _filteredTotal = _filteredForTotal.reduce((s,e) => s+(e.amount||0), 0);
+      const totalEl3 = document.getElementById('incomeTotalDisplay');
+      if (totalEl3) totalEl3.textContent = fmt(_filteredTotal);
+      const vsEl3 = document.getElementById('incomeVsObligations');
+      if (vsEl3) {
+        const diff3 = _filteredTotal - obligations;
+        vsEl3.textContent = diff3 >= 0 ? '✅ '+fmt(diff3)+' above monthly obligations' : '⚠️ '+fmt(Math.abs(diff3))+' below monthly obligations';
+        vsEl3.style.color = diff3 >= 0 ? 'var(--mint)' : 'var(--pink)';
+      }
+      // Last 3 always from full merged list
 
       // Show latest 3 in Income tab — always show if we have entries
       if (merged.length === 0) {
@@ -1990,24 +2028,37 @@ function renderIncome() {
   }
 
   // Breakdown
-  // Income by person summary
+  // Income by person summary — always use ALL TIME full merged list regardless of month filter
   const summaryEl = document.getElementById('incomePersonSummary');
   if (summaryEl) {
+    // Build full all-time merged list for person summary
+    const _phIncAll = (state.paymentHistory || [])
+      .filter(h => h.type === 'income')
+      .map(h => ({ id: h.id, amount: h.amount||0, name: h.name||'Joyce', source: h.description ? h.description.replace('Income: ','') : '' }));
+    const _ilIdsAll = new Set((state.incomeLog||[]).map(e => e.id));
+    const _allTimeMerged = [...(state.incomeLog||[])];
+    _phIncAll.forEach(e => { if (!_ilIdsAll.has(e.id)) _allTimeMerged.push(e); });
+
     const byPerson = {};
-    _mergedForTotal.forEach(e => {
+    _allTimeMerged.forEach(e => {
       const n = e.name || 'Joyce';
-      byPerson[n] = (byPerson[n] || 0) + e.amount;
+      if (!byPerson[n]) byPerson[n] = { total: 0, entries: [] };
+      byPerson[n].total += (e.amount || 0);
+      byPerson[n].entries.push(e);
     });
-    summaryEl.innerHTML = Object.entries(byPerson).map(([name, amt]) => {
+
+    summaryEl.innerHTML = Object.entries(byPerson).map(([name, data]) => {
       const isJoyce = name === 'Joyce';
       const color = isJoyce ? 'var(--pink)' : 'var(--blue)';
       const bg = isJoyce ? '#fff0f5' : '#e8f5ff';
       const icon = isJoyce ? '🌸' : '💪';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--border);">
-        <span style="display:flex;align-items:center;gap:8px;">
-          <span style="background:${bg};color:${color};font-weight:800;font-size:11px;padding:3px 10px;border-radius:99px;">${icon} ${name}</span>
-        </span>
-        <span style="font-family:'Righteous',cursive;font-size:15px;color:${color};">+${fmt(amt)}</span>
+      const entryCount = data.entries.length;
+      return `<div style="padding:10px 0;border-bottom:1px dashed var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="background:${bg};color:${color};font-weight:800;font-size:12px;padding:4px 12px;border-radius:99px;">${icon} ${name}</span>
+          <span style="font-family:'Righteous',cursive;font-size:16px;color:${color};">+${fmt(data.total)}</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;">${entryCount} income entr${entryCount === 1 ? 'y' : 'ies'} · latest: ${data.entries[0] ? data.entries[0].source || '' : ''}</div>
       </div>`;
     }).join('') || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:10px;">No income yet!</div>';
   }
@@ -2103,6 +2154,203 @@ function exportToCSV() {
   showToast('📥 CSV exported! Check your Downloads.');
 }
 
+
+// ============================================================
+// MONTHLY TRACKER
+// ============================================================
+function getMonthKey(dateStr) {
+  if (!dateStr) return null;
+  // dateStr format: "Apr 29, 2026"
+  const parts = dateStr.split(' ');
+  if (parts.length < 3) return null;
+  return parts[0] + ' ' + parts[2]; // "Apr 2026"
+}
+
+function buildMonthlyData() {
+  const allEntries = [
+    ...(state.paymentHistory || []),
+  ];
+  // Include income entries
+  const incomeEntries = (state.incomeLog || []).map(e => ({
+    ...e,
+    type: 'income',
+    description: e.source,
+  }));
+
+  const monthlySpend = {}; // { "Apr 2026": { total, payments, expenses, tithes, income } }
+  const monthlyIncome = {};
+
+  allEntries.forEach(h => {
+    const key = getMonthKey(h.date);
+    if (!key) return;
+    if (!monthlySpend[key]) monthlySpend[key] = { total:0, payments:0, expenses:0, tithes:0, transfers:0 };
+    const amt = h.amount || 0;
+    if (h.type === 'income') return; // skip income from spend
+    if (h.type === 'transfer') { monthlySpend[key].transfers += amt; return; }
+    if (h.type === 'tithes') { monthlySpend[key].tithes += amt; monthlySpend[key].total += amt; return; }
+    if (['bill','debtpay'].includes(h.type)) { monthlySpend[key].payments += amt; monthlySpend[key].total += amt; return; }
+    if (['expense','other','goalsave','savings'].includes(h.type)) { monthlySpend[key].expenses += amt; monthlySpend[key].total += amt; return; }
+    monthlySpend[key].total += amt;
+  });
+
+  // Income by month
+  const allIncome = [
+    ...(state.incomeLog || []),
+    ...(state.paymentHistory || []).filter(h => h.type === 'income'),
+  ];
+  const seenIds = new Set();
+  allIncome.forEach(e => {
+    if (seenIds.has(e.id)) return;
+    seenIds.add(e.id);
+    const key = getMonthKey(e.date);
+    if (!key) return;
+    if (!monthlyIncome[key]) monthlyIncome[key] = 0;
+    monthlyIncome[key] += (e.amount || 0);
+  });
+
+  return { monthlySpend, monthlyIncome };
+}
+
+function renderMonthlyTracker() {
+  const { monthlySpend, monthlyIncome } = buildMonthlyData();
+  const now = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const thisMonthKey = months[now.getMonth()] + ' ' + now.getFullYear();
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthKey = months[lastMonthDate.getMonth()] + ' ' + lastMonthDate.getFullYear();
+
+  // Update home card
+  const thisTotal = (monthlySpend[thisMonthKey] || {}).total || 0;
+  const lastTotal = (monthlySpend[lastMonthKey] || {}).total || 0;
+  const thisIncome = monthlyIncome[thisMonthKey] || 0;
+  const lastIncome = monthlyIncome[lastMonthKey] || 0;
+
+  const thisMonthEl = document.getElementById('thisMonthTotal');
+  const lastMonthEl = document.getElementById('lastMonthTotal');
+  const thisLabelEl = document.getElementById('thisMonthLabel');
+  const lastLabelEl = document.getElementById('lastMonthLabel');
+  const diffEl = document.getElementById('monthDiffNote');
+  const curLabelEl = document.getElementById('currentMonthLabel');
+
+  if (thisMonthEl) thisMonthEl.textContent = fmt(thisTotal);
+  if (lastMonthEl) lastMonthEl.textContent = fmt(lastTotal);
+  if (thisLabelEl) thisLabelEl.textContent = thisMonthKey;
+  if (lastLabelEl) lastLabelEl.textContent = lastMonthKey;
+  if (curLabelEl) curLabelEl.textContent = 'auto-tracked from history';
+
+  if (diffEl) {
+    if (lastTotal > 0) {
+      const diff = thisTotal - lastTotal;
+      const pctDiff = ((Math.abs(diff) / lastTotal) * 100).toFixed(0);
+      if (diff > 0) {
+        diffEl.textContent = '📈 Spending up ' + pctDiff + '% vs last month';
+        diffEl.style.color = 'var(--pink)';
+      } else if (diff < 0) {
+        diffEl.textContent = '📉 Spending down ' + pctDiff + '% vs last month — great job! 🌸';
+        diffEl.style.color = 'var(--mint)';
+      } else {
+        diffEl.textContent = '➡️ Same as last month';
+        diffEl.style.color = 'var(--muted)';
+      }
+    } else {
+      diffEl.textContent = 'Keep logging to see monthly comparisons! 🌸';
+    }
+  }
+
+  // History monthly breakdown
+  const breakEl = document.getElementById('monthlyBreakdown');
+  if (breakEl) {
+    const allKeys = [...new Set([
+      ...Object.keys(monthlySpend),
+      ...Object.keys(monthlyIncome)
+    ])].sort((a, b) => {
+      const ma = months.indexOf(a.split(' ')[0]) + parseInt(a.split(' ')[1]) * 12;
+      const mb = months.indexOf(b.split(' ')[0]) + parseInt(b.split(' ')[1]) * 12;
+      return mb - ma;
+    });
+
+    if (allKeys.length === 0) {
+      breakEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">Log more transactions to see monthly history! 🌸</div>';
+    } else {
+      breakEl.innerHTML = allKeys.map(key => {
+        const spend = monthlySpend[key] || {};
+        const income = monthlyIncome[key] || 0;
+        const total = spend.total || 0;
+        const isCurrentMonth = key === thisMonthKey;
+        return `<div style="padding:12px 0;border-bottom:1px dashed var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:13px;font-weight:800;color:var(--text);">${key}${isCurrentMonth ? ' <span style="font-size:10px;background:#fff0f5;color:var(--pink);padding:2px 8px;border-radius:99px;font-weight:800;">current</span>' : ''}</span>
+            <span style="font-family:'Righteous',cursive;font-size:14px;color:var(--pink);">${fmt(total)} spent</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${spend.payments ? `<span style="font-size:10px;background:#fff0f5;color:var(--pink);padding:2px 8px;border-radius:99px;font-weight:700;">💸 Payments ${fmt(spend.payments)}</span>` : ''}
+            ${spend.expenses ? `<span style="font-size:10px;background:#fff8e8;color:var(--peach);padding:2px 8px;border-radius:99px;font-weight:700;">🧾 Expenses ${fmt(spend.expenses)}</span>` : ''}
+            ${spend.tithes ? `<span style="font-size:10px;background:#f5e6ff;color:var(--lavender);padding:2px 8px;border-radius:99px;font-weight:700;">🙏 Tithes ${fmt(spend.tithes)}</span>` : ''}
+            ${income ? `<span style="font-size:10px;background:#d0fdf0;color:#276749;padding:2px 8px;border-radius:99px;font-weight:700;">💰 Income ${fmt(income)}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+// Monthly chart rendering
+let monthlyChartInstance = null;
+function renderMonthlyChart() {
+  const chartEl = document.getElementById('monthlyChart');
+  if (!chartEl) return;
+  const { monthlySpend, monthlyIncome } = buildMonthlyData();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const allKeys = [...new Set([
+    ...Object.keys(monthlySpend),
+    ...Object.keys(monthlyIncome)
+  ])].sort((a, b) => {
+    const ma = months.indexOf(a.split(' ')[0]) + parseInt(a.split(' ')[1]) * 12;
+    const mb = months.indexOf(b.split(' ')[0]) + parseInt(b.split(' ')[1]) * 12;
+    return ma - mb;
+  }).slice(-6); // last 6 months
+
+  const spendData = allKeys.map(k => (monthlySpend[k] || {}).total || 0);
+  const incomeData = allKeys.map(k => monthlyIncome[k] || 0);
+
+  if (monthlyChartInstance) monthlyChartInstance.destroy();
+  monthlyChartInstance = new Chart(chartEl, {
+    type: 'bar',
+    data: {
+      labels: allKeys,
+      datasets: [
+        {
+          label: 'Spent',
+          data: spendData,
+          backgroundColor: '#ffaac8',
+          borderRadius: 8,
+          borderSkipped: false,
+        },
+        {
+          label: 'Income',
+          data: incomeData,
+          backgroundColor: '#74c7e8',
+          borderRadius: 8,
+          borderSkipped: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'Nunito', weight: '700', size: 11 }, padding: 10, boxWidth: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } }
+      },
+      scales: {
+        y: { ticks: { callback: v => '₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10} }, grid: { color: '#f0e6f5' } },
+        x: { ticks: { font: { family: 'Nunito', weight: '700', size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 function renderAll() {
   renderHome();
   renderFood();
@@ -2115,6 +2363,7 @@ function renderAll() {
   renderPaidSummary();
   renderIncome();
   renderOtherExpenses();
+  renderMonthlyTracker();
 }
 
 async function connectSync() {
@@ -2943,6 +3192,9 @@ function renderCharts() {
     }
   });
 
+  // Monthly spending chart
+  renderMonthlyChart();
+
   // Income vs obligations
   if (charts.income) charts.income.destroy();
   const ctx3 = document.getElementById('incomeChart').getContext('2d');
@@ -3171,6 +3423,7 @@ renderBills();
 renderGoals();
 renderIncome();
 renderOtherExpenses();
+renderMonthlyTracker();
 </script>
 
 
