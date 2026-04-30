@@ -259,8 +259,8 @@
   .paid-btn:hover:not(.done) { background: var(--mint); color: white; transform: scale(1.05); }
 
   /* CHART AREA */
-  .chart-wrap { position: relative; width: 100%; }
-  canvas { width: 100% !important; }
+  .chart-wrap { position: relative; width: 100%; max-width: 560px; margin: 0 auto; }
+  canvas { display: block; }
 
   /* MOTIVATIONAL */
   .cheer-box {
@@ -2179,7 +2179,7 @@ function renderMonthlyChart() {
       ]
     },
     options:{
-      responsive:true,maintainAspectRatio:true,
+      responsive:true,maintainAspectRatio:true,aspectRatio:1.8,
       plugins:{legend:{position:'bottom',labels:{font:{family:'Nunito',weight:'700',size:11},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`}}},
       scales:{
         y:{ticks:{callback:v=>'₱'+Math.round(v/1000)+'k',font:{family:'Nunito',weight:'700',size:10}},grid:{color:'#f0e6f5'}},
@@ -2974,6 +2974,7 @@ function renderCharts() {
       cutout: '60%',
       responsive: true,
       maintainAspectRatio: true,
+      aspectRatio: 1.4,
       plugins: {
         legend: {
           position: 'bottom',
@@ -3018,6 +3019,7 @@ function renderCharts() {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      aspectRatio: 1.8,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.parsed.y)}` } } },
       scales: {
         y: { ticks: { callback: v => '₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10} }, grid: { color: '#f0e6f5' } },
@@ -3044,6 +3046,7 @@ function renderCharts() {
       indexAxis: 'y',
       responsive: true,
       maintainAspectRatio: true,
+      aspectRatio: 2.5,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.parsed.x)}` } } },
       scales: {
         x: { ticks: { callback: v => '₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10} }, grid: { color: '#f0e6f5' } },
