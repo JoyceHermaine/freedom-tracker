@@ -2663,7 +2663,7 @@ function renderHistory() {
     all: () => true,
     payment: h => ['bill','debtpay'].includes(h.type),
     goals: h => ['goalsave','savings'].includes(h.type),
-    expense: h => ['expense','other'].includes(h.type) && h.ref !== 'tithes',
+    expense: h => ['expense','other'].includes(h.type) && h.type !== 'tithes',
     tithes: h => h.type === 'tithes' || (h.type === 'other' && h.ref === 'tithes'),
     transfer: h => h.type === 'transfer',
   };
