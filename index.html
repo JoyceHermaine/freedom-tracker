@@ -971,6 +971,7 @@ function doPost(e){
     <button onclick="filterHistory('income')" id="hf_income" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">💰 Income</button>
     <button onclick="filterHistory('expense')" id="hf_expense" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">🧾 Expenses</button>
     <button onclick="filterHistory('tithes')" id="hf_tithes" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">🙏 Tithes</button>
+    <button onclick="filterHistory('mustang')" id="hf_mustang" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">🚛 Mustang</button>
     <button onclick="filterHistory('transfer')" id="hf_transfer" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">💸 Transfers</button>
   </div>
 
@@ -2611,7 +2612,7 @@ let _historyFilter = 'all';
 function filterHistory(type) {
   _historyFilter = type;
   // Update button styles
-  ['all','payment','goals','income','expense','tithes','transfer'].forEach(t => {
+  ['all','payment','goals','income','expense','tithes','mustang','transfer'].forEach(t => {
     const btn = document.getElementById('hf_' + t);
     if (!btn) return;
     if (t === type) {
@@ -2631,6 +2632,7 @@ function filterHistory(type) {
     income: '💰 Income',
     expense: '🧾 Expenses',
     tithes: '🙏 Tithes & Offering',
+    mustang: '🚛 Mustang Expenses',
     transfer: '💸 Transfers',
   };
   const titleEl = document.getElementById('historyCardTitle');
@@ -2698,11 +2700,62 @@ function renderHistory() {
     all: () => true,
     payment: h => ['bill','debtpay'].includes(h.type),
     goals: h => ['goalsave','savings'].includes(h.type),
-    expense: h => ['expense','other'].includes(h.type) && h.type !== 'tithes',
+    expense: h => ['expense','other'].includes(h.type) && h.type !== 'tithes' && !((h.description||'').includes('Mustang') || (h.description||'').includes('mustang')),
     tithes: h => h.type === 'tithes' || (h.type === 'other' && h.ref === 'tithes'),
+    mustang: h => (h.type === 'expense' && h.ref === 'mustang') ||
+                  (h.type === 'debtpay' && h.ref === 'l300') ||
+                  (h.type === 'bill' && h.ref === 'b15') ||
+                  (h.type === 'other' && ((h.description||'').includes('Mustang RFID') || (h.description||'').includes('🚛 Mustang') || (h.description||'') === 'Mustang')),
     transfer: h => h.type === 'transfer',
   };
   const history = allHistory.filter(filterMap[_historyFilter] || (() => true));
+
+  // Mustang monthly total summary
+  if (_historyFilter === 'mustang') {
+    const now = new Date();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const thisKey = months[now.getMonth()] + ' ' + now.getFullYear();
+    const thisMonthTotal = history
+      .filter(h => (h.date||'').includes(months[now.getMonth()]) && (h.date||'').includes(now.getFullYear().toString()))
+      .reduce((s, h) => s + (h.amount||0), 0);
+    const allTimeTotal = history.reduce((s, h) => s + (h.amount||0), 0);
+    el.innerHTML = `
+      <div style="background:linear-gradient(135deg,#fff8e8,#fff3cd);border-radius:16px;padding:14px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:2px;">This Month (${thisKey})</div>
+          <div style="font-family:'Righteous',cursive;font-size:22px;color:#d69e2e;">${fmt(thisMonthTotal)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:2px;">All Time</div>
+          <div style="font-family:'Righteous',cursive;font-size:16px;color:var(--muted);">${fmt(allTimeTotal)}</div>
+        </div>
+      </div>
+    ` + history.map(h => {
+      const isJoyce = (h.name || '') === 'Joyce';
+      const nameColor = isJoyce ? 'var(--pink)' : 'var(--blue)';
+      const nameBg = isJoyce ? '#fff0f5' : '#e8f5ff';
+      if (!h.id) h.id = 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      const currentUser = getUserName();
+      const canUndo = h.type !== 'undo' && (!h.name || h.name === currentUser);
+      return `
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--border);">
+        <div style="font-size:20px; flex-shrink:0;">${h.emoji || '🚛'}</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:13px; font-weight:700;">${h.description || ''}</div>
+          <div style="display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap;">
+            <span style="font-size:10px; background:${nameBg}; color:${nameColor}; font-weight:800; padding:2px 8px; border-radius:99px;">${h.name || 'Joyce'}</span>
+            <span style="font-size:10px; color:var(--muted);">📅 ${h.date || ''}</span>
+            <span style="font-size:10px; color:var(--muted);">🕐 ${h.time || ''}</span>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0;">
+          <div style="font-family:'Righteous',cursive; font-size:14px; color:var(--pink);">${fmt(h.amount)}</div>
+          ${canUndo ? `<button onclick="confirmUndo('${h.id}')" style="background:#fff0e8; border:none; border-radius:8px; padding:5px 12px; font-size:11px; font-weight:800; color:var(--peach); cursor:pointer; font-family:Nunito,sans-serif; border:1px solid #ffd4b8;">↩ Undo</button>` : `<span style="font-size:10px;color:var(--muted);font-style:italic;">logged by ${h.name||''}</span>`}
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
 
   if (history.length === 0) {
     el.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:13px; padding:20px 0;">No entries in this category yet! 🌸</div>';
