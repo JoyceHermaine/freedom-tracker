@@ -819,6 +819,13 @@ function doPost(e){
       <canvas id="incomeChart"></canvas>
     </div>
   </div>
+
+  <div class="card">
+    <div class="card-title">📊 Monthly Budget History</div>
+    <div id="budgetHistoryList">
+      <div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">Budget history will appear here after your first month reset 🌸</div>
+    </div>
+  </div>
 </div>
 
 <!-- GOALS TAB -->
@@ -1288,6 +1295,8 @@ let state = {
   incomeLog: JSON.parse(localStorage.getItem('je_incomeLog') || '[]'),
   savings: parseFloat(localStorage.getItem('je_savings') || '0'),
   otherExpenses: JSON.parse(localStorage.getItem('je_otherExpenses') || '[]'),
+  budgetHistory: JSON.parse(localStorage.getItem('je_budgetHistory') || '[]'),
+  lastBudgetMonth: localStorage.getItem('je_lastBudgetMonth') || '',
 };
 
 // ===================== FIREBASE SYNC =====================
@@ -1349,6 +1358,8 @@ function getDataToSave() {
     mustangSpent: state.mustangSpent, otherExpenses: state.otherExpenses || [],
     incomeLog: state.incomeLog || [], savings: state.savings || 0,
     paymentHistory: state.paymentHistory || [],
+    budgetHistory: state.budgetHistory || [],
+    lastBudgetMonth: state.lastBudgetMonth || '',
     lastUpdated: new Date().toISOString(),
     updatedBy: localStorage.getItem('je_userName') || 'Joyce',
   };
@@ -1397,6 +1408,8 @@ async function pullFromCloud(silent) {
     state.paymentHistory = safeArr(cloud.paymentHistory, state.paymentHistory);
     state.otherExpenses = safeArr(cloud.otherExpenses, state.otherExpenses);
     state.savings = Math.max(cloud.savings||0, state.savings||0);
+    state.budgetHistory = safeArr(cloud.budgetHistory, state.budgetHistory || []);
+    state.lastBudgetMonth = cloud.lastBudgetMonth || state.lastBudgetMonth || '';
     saveLocalOnly();
     setSyncStatus('green', 'Synced ✓');
     return true;
@@ -1450,6 +1463,8 @@ function saveLocalOnly() {
   localStorage.setItem('je_incomeLog', JSON.stringify(state.incomeLog || []));
   localStorage.setItem('je_savings', state.savings || 0);
   localStorage.setItem('je_otherExpenses', JSON.stringify(state.otherExpenses || []));
+  localStorage.setItem('je_budgetHistory', JSON.stringify(state.budgetHistory || []));
+  localStorage.setItem('je_lastBudgetMonth', state.lastBudgetMonth || '');
 }
 
 function saveState() {
@@ -1457,6 +1472,42 @@ function saveState() {
   // Debounce cloud push so rapid taps don't spam
   clearTimeout(syncTimer);
   syncTimer = setTimeout(pushToCloud, SYNC_DEBOUNCE);
+}
+
+// ===================== MONTHLY BUDGET RESET =====================
+function checkMonthlyReset() {
+  const now = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const currentMonthKey = months[now.getMonth()] + ' ' + now.getFullYear();
+
+  if (state.lastBudgetMonth === currentMonthKey) return; // Already reset this month
+
+  // Archive last month if we have data
+  if (state.lastBudgetMonth && (state.foodSpent > 0 || state.appaSpent > 0 || state.mustangSpent > 0)) {
+    if (!state.budgetHistory) state.budgetHistory = [];
+    // Don't duplicate — remove existing entry for same month if any
+    state.budgetHistory = state.budgetHistory.filter(h => h.month !== state.lastBudgetMonth);
+    state.budgetHistory.unshift({
+      month: state.lastBudgetMonth,
+      food: state.foodSpent,
+      foodBudget: state.foodBudget,
+      appa: state.appaSpent,
+      appaBudget: state.appaBudget,
+      mustang: state.mustangSpent,
+      mustangBudget: state.mustangBudget,
+    });
+    // Keep last 12 months
+    if (state.budgetHistory.length > 12) state.budgetHistory = state.budgetHistory.slice(0, 12);
+  }
+
+  // Reset spending for new month
+  state.foodSpent = 0;
+  state.appaSpent = 0;
+  state.mustangSpent = 0;
+  state.lastBudgetMonth = currentMonthKey;
+
+  saveState();
+  showToast('🌸 New month! ' + currentMonthKey + ' budgets reset!');
 }
 
 // ===================== EXPENSE LOG =====================
@@ -3137,6 +3188,58 @@ function renderCharts() {
       }
     }
   });
+  renderBudgetHistory();
+}
+
+function renderBudgetHistory() {
+  const el = document.getElementById('budgetHistoryList');
+  if (!el) return;
+  const history = state.budgetHistory || [];
+  if (history.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">Budget history will appear here after your first month reset 🌸</div>';
+    return;
+  }
+  el.innerHTML = history.map(h => {
+    const foodPct = Math.min(100, Math.round((h.food / h.foodBudget) * 100));
+    const appaPct = Math.min(100, Math.round((h.appa / h.appaBudget) * 100));
+    const mustangPct = Math.min(100, Math.round((h.mustang / h.mustangBudget) * 100));
+    const foodColor = foodPct > 100 ? '#e53e3e' : foodPct > 80 ? '#ffd166' : '#06d6a0';
+    const appaColor = appaPct > 100 ? '#e53e3e' : appaPct > 80 ? '#ffd166' : '#ff9a6c';
+    const mustangColor = mustangPct > 100 ? '#e53e3e' : mustangPct > 80 ? '#ffd166' : '#ffd166';
+    return `
+    <div style="padding:12px 0;border-bottom:1px dashed var(--border);">
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px;">${h.month}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;font-weight:700;">🍱 Food</span>
+            <span style="font-size:11px;color:var(--muted);">${fmt(h.food)} / ${fmt(h.foodBudget)} · ${foodPct}%</span>
+          </div>
+          <div style="background:#f5edf8;border-radius:99px;height:8px;overflow:hidden;">
+            <div style="height:100%;border-radius:99px;width:${Math.min(100,foodPct)}%;background:${foodColor};transition:width 0.6s ease;"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;font-weight:700;">🚗 Appa Gas</span>
+            <span style="font-size:11px;color:var(--muted);">${fmt(h.appa)} / ${fmt(h.appaBudget)} · ${appaPct}%</span>
+          </div>
+          <div style="background:#f5edf8;border-radius:99px;height:8px;overflow:hidden;">
+            <div style="height:100%;border-radius:99px;width:${Math.min(100,appaPct)}%;background:${appaColor};transition:width 0.6s ease;"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:11px;font-weight:700;">🚛 Mustang Diesel</span>
+            <span style="font-size:11px;color:var(--muted);">${fmt(h.mustang)} / ${fmt(h.mustangBudget)} · ${mustangPct}%</span>
+          </div>
+          <div style="background:#f5edf8;border-radius:99px;height:8px;overflow:hidden;">
+            <div style="height:100%;border-radius:99px;width:${Math.min(100,mustangPct)}%;background:${mustangColor};transition:width 0.6s ease;"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ===================== GOALS =====================
@@ -3317,6 +3420,7 @@ async function initSync() {
     await pushToCloud();
   }
   setSyncStatus('green', 'Synced ✓');
+  checkMonthlyReset();
   renderAll();
   // Real-time listener for Emil updates
   if (_firebaseRef) {
