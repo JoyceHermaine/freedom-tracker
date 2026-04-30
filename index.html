@@ -1336,7 +1336,7 @@ function initFirebase() {
     if (!firebase.apps.length) firebase.initializeApp(cfg);
     _firebaseDb = firebase.database();
     _firebaseRef = _firebaseDb.ref('tracker/state');
-    setSyncStatus('green', 'Synced ✓');
+    setSyncStatus('yellow', 'Connecting...');
     return true;
   } catch(e) {
     console.error('Firebase init:', e);
