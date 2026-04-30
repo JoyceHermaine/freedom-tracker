@@ -625,7 +625,7 @@ function doPost(e){
 
   <!-- FOOD BUDGET TRACKER -->
   <div class="card">
-    <div class="card-title">🍱 May Food Budget</div>
+    <div class="card-title" id="foodBudgetTitle">🍱 Food Budget</div>
     <div class="prog-item">
       <div class="prog-header">
         <span class="prog-name">Food Allowance</span>
@@ -816,7 +816,7 @@ function doPost(e){
   <div style="height:8px"></div>
 
   <div class="card">
-    <div class="card-title">🚨 May 5 — Most Urgent</div>
+    <div class="card-title" id="urgentBillsTitle">🚨 Most Urgent</div>
     <div id="urgentBills"></div>
   </div>
 
@@ -2224,6 +2224,10 @@ function totalInitial() { return state.debts.reduce((a,d) => a+d.initial, 0); }
 
 // ===================== FOOD BUDGET =====================
 function renderFood() {
+  const now = new Date();
+  const monthName = now.toLocaleDateString('en-PH', { month: 'long' });
+  const titleEl = document.getElementById('foodBudgetTitle');
+  if (titleEl) titleEl.textContent = '🍱 ' + monthName + ' Food Budget';
   const remaining = state.foodBudget - state.foodSpent;
   const pctSpent = Math.min(100, (state.foodSpent / state.foodBudget) * 100);
   const color = pctSpent > 80 ? 'linear-gradient(90deg,#e53e3e,#ff6b9d)' : pctSpent > 60 ? 'linear-gradient(90deg,#ffd166,#ff9a6c)' : 'linear-gradient(90deg,#06d6a0,#ffd166)';
@@ -2806,6 +2810,12 @@ function renderBills() {
   const today = now.getDate();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
+  const monthName = now.toLocaleDateString('en-PH', { month: 'long' });
+
+  // Update urgent title dynamically
+  const urgentTitle = document.getElementById('urgentBillsTitle');
+  if (urgentTitle) urgentTitle.textContent = '🚨 Most Urgent — ' + monthName;
+
   const unpaid = state.bills.filter(b => !b.paid && b.amount > 0).sort((a,b) => a.date - b.date);
   const paid = state.bills.filter(b => b.paid && b.amount > 0).sort((a,b) => a.date - b.date);
 
