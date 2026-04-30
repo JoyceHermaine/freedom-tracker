@@ -1839,7 +1839,7 @@ function renderIncome() {
   // Use merged income (incomeLog + paymentHistory income entries)
   const _phInc2 = (state.paymentHistory || [])
     .filter(h => h.type === 'income')
-    .map(h => ({ id: h.id, amount: h.amount || 0 }));
+    .map(h => ({ id: h.id, amount: h.amount || 0, name: h.name || 'Joyce' }));
   const _ilIds3 = new Set((state.incomeLog || []).map(e => e.id));
   const _mergedForTotal = [...(state.incomeLog || [])];
   _phInc2.forEach(e => { if (!_ilIds3.has(e.id)) _mergedForTotal.push(e); });
