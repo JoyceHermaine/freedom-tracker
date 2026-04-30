@@ -2919,30 +2919,32 @@ function toggleBillPaid(id) {
   const bill = state.bills.find(b => b.id === id);
   if (!bill) return;
 
+  const debtId = BILL_DEBT_MAP[id];
+  const isDebtBill = !!debtId;
+
   if (!bill.paid) {
     bill.paid = true;
     // Deduct from linked debt balance
-    const debtId = BILL_DEBT_MAP[id];
-    if (debtId) {
+    if (isDebtBill) {
       const debt = state.debts.find(d => d.id === debtId);
       if (debt) {
         debt.balance = Math.max(0, debt.balance - bill.amount);
       }
+      // Only count toward debt freedom progress if it's a debt payment
+      state.totalPaid += bill.amount;
     }
-    state.totalPaid += bill.amount;
     logExpense('💸', 'Paid: ' + bill.name, bill.amount, 'bill', bill.id);
     confetti();
   } else {
     bill.paid = false;
     // Re-add to linked debt balance on undo
-    const debtId = BILL_DEBT_MAP[id];
-    if (debtId) {
+    if (isDebtBill) {
       const debt = state.debts.find(d => d.id === debtId);
       if (debt) {
         debt.balance = Math.min(debt.initial, debt.balance + bill.amount);
       }
+      state.totalPaid = Math.max(0, state.totalPaid - bill.amount);
     }
-    state.totalPaid = Math.max(0, state.totalPaid - bill.amount);
     logExpense('↩️', 'Undid: ' + bill.name, bill.amount);
   }
 
