@@ -733,48 +733,7 @@ function doPost(e){
   <!-- MILESTONES -->
   <div class="card">
     <div class="card-title">🏆 Milestones</div>
-    <div id="milestoneList">
-      <div class="milestone-row">
-        <div class="milestone-check pending">🌱</div>
-        <div class="milestone-label">Pay off MariBank SLoans</div>
-        <div class="milestone-date">~Jul 2026</div>
-      </div>
-      <div class="milestone-row">
-        <div class="milestone-check pending">🐾</div>
-        <div class="milestone-label">First dog vaccine fund</div>
-        <div class="milestone-date">~Sep 2026</div>
-      </div>
-      <div class="milestone-row">
-        <div class="milestone-check pending">💳</div>
-        <div class="milestone-label">Pay off Security Bank CC</div>
-        <div class="milestone-date">~2026</div>
-      </div>
-      <div class="milestone-row">
-        <div class="milestone-check pending">🛍️</div>
-        <div class="milestone-label">Zero SPayLater balance</div>
-        <div class="milestone-date">~Aug 2026</div>
-      </div>
-      <div class="milestone-row">
-        <div class="milestone-check pending">💪</div>
-        <div class="milestone-label">BPI CC below ₱200k</div>
-        <div class="milestone-date">~2027</div>
-      </div>
-      <div class="milestone-row">
-        <div class="milestone-check pending">🚗</div>
-        <div class="milestone-label">Personal car fully paid</div>
-        <div class="milestone-date">Aug 2029</div>
-      </div>
-      <div class="milestone-row">
-        <div class="milestone-check pending">🚛</div>
-        <div class="milestone-label">L300 fully paid</div>
-        <div class="milestone-date">Sep 2030</div>
-      </div>
-      <div class="milestone-row">
-        <div class="milestone-check pending">🎊</div>
-        <div class="milestone-label">DEBT FREE!</div>
-        <div class="milestone-date">The Goal 🌸</div>
-      </div>
-    </div>
+    <div id="milestoneList"></div>
   </div>
 
 
@@ -2215,6 +2174,7 @@ function renderAll() {
   renderPaidSummary();
   renderIncome();
   renderOtherExpenses();
+  renderMilestones();
 }
 
 // ===================== BUDGET EDIT =====================
@@ -2265,6 +2225,60 @@ function clearCacheAndResync() {
   document.body.style.transition = 'opacity 0.5s';
   document.body.style.opacity = '0';
   setTimeout(() => window.location.reload(), 500);
+}
+
+// ===================== MILESTONES =====================
+function renderMilestones() {
+  const el = document.getElementById('milestoneList');
+  if (!el) return;
+
+  const getDebt = id => state.debts.find(d => d.id === id);
+  const dogGoal = (state.goals || []).find(g => g.name && g.name.toLowerCase().includes('dog'));
+
+  const milestones = [
+    {
+      emoji: '🌱', label: 'Pay off MariBank SLoans', date: '~Jul 2026',
+      done: () => { const d = getDebt('sloan'); return d && d.balance === 0; }
+    },
+    {
+      emoji: '🐾', label: 'First dog vaccine fund', date: '~Sep 2026',
+      done: () => dogGoal && dogGoal.saved >= dogGoal.target
+    },
+    {
+      emoji: '💳', label: 'Pay off Security Bank CC', date: '~2026',
+      done: () => { const d = getDebt('secbank'); return d && d.balance === 0; }
+    },
+    {
+      emoji: '🛍️', label: 'Zero SPayLater balance', date: '~Aug 2026',
+      done: () => { const d = getDebt('spaylater'); return d && d.balance === 0; }
+    },
+    {
+      emoji: '💪', label: 'BPI CC below ₱200k', date: '~2027',
+      done: () => { const d = getDebt('bpi'); return d && d.balance < 200000; }
+    },
+    {
+      emoji: '🚗', label: 'Personal car fully paid', date: 'Aug 2029',
+      done: () => { const d = getDebt('car'); return d && d.balance === 0; }
+    },
+    {
+      emoji: '🚛', label: 'L300 fully paid', date: 'Sep 2030',
+      done: () => { const d = getDebt('l300'); return d && d.balance === 0; }
+    },
+    {
+      emoji: '🎊', label: 'DEBT FREE!', date: 'The Goal 🌸',
+      done: () => state.debts.every(d => d.balance === 0)
+    },
+  ];
+
+  el.innerHTML = milestones.map(m => {
+    const isDone = m.done();
+    return `
+      <div class="milestone-row">
+        <div class="milestone-check ${isDone ? 'done' : 'pending'}">${isDone ? '✅' : m.emoji}</div>
+        <div class="milestone-label ${isDone ? 'done' : ''}">${m.label}</div>
+        <div class="milestone-date">${isDone ? '🎉 Done!' : m.date}</div>
+      </div>`;
+  }).join('');
 }
 
 function totalDebt() { return state.debts.reduce((a,d) => a+d.balance, 0); }
@@ -2448,6 +2462,7 @@ function renderHome() {
     const now = new Date();
     monthLabel.textContent = now.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
   }
+  renderMilestones();
 }
 
 // ===================== DEBTS =====================
