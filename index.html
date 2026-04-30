@@ -1421,7 +1421,6 @@ async function pullFromCloud(silent) {
     state.otherExpenses = safeArr(cloud.otherExpenses, state.otherExpenses);
     state.savings = Math.max(cloud.savings||0, state.savings||0);
     saveLocalOnly();
-    renderAll();
     setSyncStatus('green', 'Synced ✓');
     return true;
   } catch(e) {
@@ -1442,7 +1441,7 @@ async function verifyCloudHasData() {
 function showSyncInfo() {
   _manualSyncMode = true;
   showSyncBanner('syncing', '🔄 Syncing...');
-  pushToCloud().then(() => pullFromCloud(true).then(() => showSyncBanner('success', '✅ Synced!')));
+  pushToCloud().then(() => pullFromCloud(true).then(() => { renderAll(); showSyncBanner('success', '✅ Synced!'); }));
 }
 
 async function testAndSync() {
@@ -1450,6 +1449,7 @@ async function testAndSync() {
   showSyncBanner('syncing', '🔄 Manual sync...');
   await pushToCloud();
   await pullFromCloud(true);
+  renderAll();
   showSyncBanner('success', '✅ Done!');
 }
 
