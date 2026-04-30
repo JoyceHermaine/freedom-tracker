@@ -613,7 +613,7 @@ function doPost(e){
     </div>
     <div class="hero-card peach" data-emoji="📅">
       <div class="hero-label">Due This Month</div>
-      <div class="hero-num" id="dueThisMonth">₱197,234</div>
+      <div class="hero-num" id="dueThisMonth">₱0</div>
       <div class="hero-sub" id="dueThisMonthLabel"></div>
     </div>
     <div class="hero-card lav" data-emoji="✨">
@@ -2457,6 +2457,14 @@ function renderHome() {
   const p = pct(paid, total);
   document.getElementById('overallBar').style.width = p + '%';
   document.getElementById('overallPct').textContent = p + '% free ' + (p > 50 ? '🌟' : p > 25 ? '🌿' : '🌱');
+
+  // Dynamic Due This Month — all unpaid bills including overdue
+  const unpaidTotal = (state.bills || [])
+    .filter(b => !b.paid && b.amount > 0)
+    .reduce((s, b) => s + b.amount, 0);
+  const dueEl = document.getElementById('dueThisMonth');
+  if (dueEl) dueEl.textContent = fmt(unpaidTotal);
+
   const monthLabel = document.getElementById('dueThisMonthLabel');
   if (monthLabel) {
     const now = new Date();
