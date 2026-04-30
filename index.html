@@ -1322,6 +1322,7 @@ let _firebaseDb = null;
 let _firebaseRef = null;
 let _manualSyncMode = false;
 
+const SYNC_URL_KEY = 'je_syncUrl';
 function getSyncUrl() { return 'firebase'; }
 
 function initFirebase() {
@@ -2196,52 +2197,9 @@ function renderAll() {
   renderOtherExpenses();
 }
 
-async function connectSync() {
-  const url = document.getElementById('gasUrlInput').value.trim();
-  if (!url.startsWith('https://script.google.com')) {
-    alert('Please paste a valid Google Apps Script URL (starts with https://script.google.com)');
-    return;
-  }
-  localStorage.setItem(SYNC_URL_KEY, url);
-  // Ask for name
-  const name = prompt('What should we call you in sync logs? (e.g. Joyce or Emil)') || 'Joyce';
-  localStorage.setItem('je_userName', name);
-
-  document.getElementById('setupOverlay').classList.add('hidden');
-  setSyncStatus('yellow', 'Connecting...');
-  showToast('Connecting to cloud... ☁️');
-
-  // Try to pull existing data first, then push local
-  const pulled = await pullFromCloud(false);
-  if (!pulled) await pushToCloud();
-  showToast('🎉 Cloud sync active! Share the app with Emil now!');
-}
-
-function skipSync() {
-  localStorage.setItem(SYNC_URL_KEY, 'skip');
-  document.getElementById('setupOverlay').classList.add('hidden');
-  setSyncStatus('yellow', 'Offline mode');
-}
-
-function showSyncInfo() {
-  const url = getSyncUrl();
-  if (!url || url === 'skip') {
-    if (confirm('Cloud sync is not set up. Set it up now?')) {
-      localStorage.removeItem(SYNC_URL_KEY);
-      document.getElementById('setupOverlay').classList.remove('hidden');
-    }
-  } else {
-    // Show sync status dialog
-    const lastSync = localStorage.getItem('je_lastSync');
-    const lastSyncText = lastSync ? new Date(lastSync).toLocaleString('en-PH') : 'Never';
-    const userName = localStorage.getItem('je_userName') || 'Unknown';
-    const syncUrl = url.substring(0, 60) + '...';
-    const choice = confirm(`Sync Info\n\nUser: ${userName}\nLast sync: ${lastSyncText}\n\nOK = Force sync now\nCancel = Dismiss`);
-    if (choice) {
-      testAndSync();
-    }
-  }
-}
+// ===================== UTILS =====================
+const fmt = n => '₱' + Math.round(n).toLocaleString('en-PH');
+const pct = (paid, total) => Math.min(100, Math.max(0, (paid/total)*100)).toFixed(1);
 
 function clearCacheAndResync() {
   if (!confirm('🌸 Clear local cache and pull fresh data from cloud?\n\nYour data is safe — this just refreshes everything from the cloud!')) return;
@@ -2250,50 +2208,10 @@ function clearCacheAndResync() {
   Object.keys(localStorage).forEach(key => {
     if (key.startsWith('je_') && !keep.includes(key)) localStorage.removeItem(key);
   });
-  // Fade out gracefully instead of white flash
   document.body.style.transition = 'opacity 0.5s';
   document.body.style.opacity = '0';
   setTimeout(() => window.location.reload(), 500);
 }
-
-async function testAndSync() {
-  const url = getSyncUrl();
-  _manualSyncMode = true; // allow banner for manual sync
-  setSyncStatus('yellow', 'Testing...');
-  showSyncBanner('syncing', '🔄 Syncing manually...');
-  try {
-    await pushToCloud();
-    const pulled = await pullFromCloud(true);
-    const who = localStorage.getItem('je_userName') || 'Joyce';
-    const when = new Date().toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'});
-    showSyncBanner('success', '✅ Manual sync done! ' + who + ' · ' + when);
-    setSyncStatus('green', 'Synced ✓');
-  } catch(err) {
-    setSyncStatus('red', 'Sync failed');
-    showSyncBanner('error', '❌ Sync failed. Check internet.');
-    console.error('Sync error:', err);
-  }
-}
-
-function copyGASCode() {
-  const code = document.getElementById('gasCode').textContent;
-  navigator.clipboard.writeText(code).then(() => {
-    showToast('✅ Code copied! Now paste it in Apps Script.');
-  }).catch(() => {
-    // Fallback for older iOS
-    const ta = document.createElement('textarea');
-    ta.value = code;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('✅ Code copied! Now paste it in Apps Script.');
-  });
-}
-
-// ===================== UTILS =====================
-const fmt = n => '₱' + Math.round(n).toLocaleString('en-PH');
-const pct = (paid, total) => Math.min(100, Math.max(0, (paid/total)*100)).toFixed(1);
 
 function totalDebt() { return state.debts.reduce((a,d) => a+d.balance, 0); }
 function totalInitial() { return state.debts.reduce((a,d) => a+d.initial, 0); }
