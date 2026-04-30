@@ -2285,12 +2285,42 @@ function addMustangSpend() {
 
 // ===================== CHEERS =====================
 const cheers = [
+  // 1 — Verse
+  { emoji:'✝️', title:'Jeremiah 29:11', text:'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."\n\n— He knew about every peso of this debt before you did. And He already has the way out. 🌸' },
+  // 2 — Motivational
   { emoji:'💪', title:'You\'ve got this!', text:'Every peso paid is a step toward freedom. Keep going, Joyce & Emil! 🌸' },
+  // 3 — Verse
+  { emoji:'✝️', title:'Philippians 4:19', text:'"And my God will meet all your needs according to the riches of his glory in Christ Jesus."\n\n— Every bill, every loan, every shortfall — He sees it. Your needs are not too big for Him. 🙏' },
+  // 4 — Motivational
   { emoji:'🌸', title:'Progress is Progress!', text:'The fact that you\'re tracking means you\'re already ahead of where you were. Proud of you both!' },
+  // 5 — Verse
+  { emoji:'✝️', title:'Proverbs 21:5', text:'"The plans of the diligent lead to profit as surely as haste leads to poverty."\n\n— This tracker is diligence in action. Every entry you log is a step toward that Taytay home. 🏡' },
+  // 6 — Motivational
   { emoji:'🔥', title:'On Fire!', text:'The next 3 months are the hardest. After August, ₱39,713/mo gets freed up. The light is real! 💡' },
+  // 7 — Verse
+  { emoji:'✝️', title:'Deuteronomy 28:12', text:'"The Lord will open the heavens, the storehouse of his bounty, to send rain on your land in season and to bless all the work of your hands."\n\n— Emil\'s trucking, Joyce\'s work — God is blessing the work of your hands. Keep going. 🚛' },
+  // 8 — Motivational
   { emoji:'🐾', title:'For the fur babies!', text:'Keep going — your dogs\' vaccines are waiting on the other side of this! 🐕💕' },
+  // 9 — Verse
+  { emoji:'✝️', title:'Matthew 6:31-33', text:'"So do not worry, saying what shall we eat? or what shall we drink? or what shall we wear? But seek first his kingdom and his righteousness, and all these things will be given to you as well."\n\n— He\'s got the groceries, the gas, the rent. You just keep seeking Him first. 🌿' },
+  // 10 — Motivational
   { emoji:'🚗', title:'Almost there!', text:'Your car will be yours — no bank\'s — by August 2029. Every payment is equity! 🙌' },
+  // 11 — Verse
+  { emoji:'✝️', title:'Hebrews 6:19', text:'"We have this hope as an anchor for the soul, firm and secure."\n\n— When the numbers feel overwhelming, this hope holds you. August 2026 is coming. ⚓' },
+  // 12 — Motivational
   { emoji:'✨', title:'Small steps, big dreams!', text:'You went from zero visibility to full financial clarity today. That\'s HUGE. 🌟' },
+  // 13 — Verse
+  { emoji:'✝️', title:'Psalm 23:1', text:'"The Lord is my shepherd, I lack nothing."\n\n— Not ₱39,577. Not ₱27,570. Not a single peso was an accident. He provides. 🌸' },
+  // 14 — Motivational
+  { emoji:'🌴', title:'Thailand is coming!', text:'₱30,000 saved = flights + resort for two. Keep the goal alive — you\'ve earned that trip! ✈️' },
+  // 15 — Verse
+  { emoji:'✝️', title:'Psalm 37:4', text:'"Take delight in the Lord, and he will give you the desires of your heart."\n\n— The Thailand trip, the Taytay home, the healthy fur babies — He knows your heart\'s desires. 💕' },
+  // 16 — Verse
+  { emoji:'✝️', title:'Lamentations 3:22-23', text:'"Because of the Lord\'s great love we are not consumed, for his compassions never fail. They are new every morning; great is your faithfulness."\n\n— Every new month is a fresh start. New income, new payments, new mercy. 🌅' },
+  // 17 — Verse
+  { emoji:'✝️', title:'Luke 16:10', text:'"Whoever can be trusted with very little can also be trusted with much."\n\n— Every peso tracked here is faithfulness training. More is coming. 💰' },
+  // 18 — Verse
+  { emoji:'✝️', title:'Romans 13:8', text:'"Let no debt remain outstanding, except the continuing debt to love one another."\n\n— That\'s the finish line: ₱0 owed to anyone but love. You\'re running toward it. 🏁' },
 ];
 let cheerIdx = 0;
 function rotateCheer() {
@@ -2313,8 +2343,8 @@ function rotateCheer() {
   }, 320);
 }
 document.getElementById('cheerBox').addEventListener('click', rotateCheer);
-// Auto-rotate verse every 30 seconds
-setInterval(rotateCheer, 30000);
+// Auto-rotate every 15 seconds
+setInterval(rotateCheer, 15000);
 
 // ===================== TABS =====================
 function switchTab(name) {
