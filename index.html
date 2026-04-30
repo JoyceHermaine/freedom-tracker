@@ -1869,7 +1869,10 @@ function renderIncome() {
   _phInc2.forEach(e => { if (!_ilIds3.has(e.id)) _mergedForTotal.push(e); });
   const totalIncome = _mergedForTotal.reduce((s, e) => s + (e.amount || 0), 0);
   const totalBillsPaid = (state.bills || []).filter(b => b.paid).reduce((s,b) => s + b.amount, 0);
-  const totalExpenses = (state.foodSpent||0) + (state.appaSpent||0) + (state.mustangSpent||0);
+  // Use paymentHistory for food/appa/mustang so monthly reset doesn't affect available funds
+  const totalExpenses = (state.paymentHistory||[])
+    .filter(h => h.type === 'expense' && ['food','appa','mustang'].includes(h.ref))
+    .reduce((s,h) => s + (h.amount||0), 0);
   const totalOther = (state.otherExpenses||[]).reduce((s,e) => s+e.amount, 0);
   const available = totalIncome - totalBillsPaid - totalExpenses - totalOther - (state.savings || 0);
   const obligations = 197234;
@@ -1971,7 +1974,9 @@ function renderIncome() {
         vsEl2.style.color = diff2 >= 0 ? 'var(--mint)' : 'var(--pink)';
       }
       // Update available cash using merged total
-      const totalExpenses2 = (state.foodSpent||0) + (state.appaSpent||0) + (state.mustangSpent||0);
+      const totalExpenses2 = (state.paymentHistory||[])
+        .filter(h => h.type === 'expense' && ['food','appa','mustang'].includes(h.ref))
+        .reduce((s,h) => s + (h.amount||0), 0);
       const totalOther2 = (state.otherExpenses||[]).reduce((s,e) => s+e.amount, 0);
       const totalBillsPaid2 = (state.bills||[]).filter(b=>b.paid).reduce((s,b)=>s+b.amount,0);
       const available2 = mergedTotal - totalBillsPaid2 - totalExpenses2 - totalOther2 - (state.savings||0);
