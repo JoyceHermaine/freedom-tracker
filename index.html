@@ -3193,6 +3193,14 @@ document.getElementById('todayDate').textContent = new Date().toLocaleDateString
 // Sync is hardcoded — connect immediately
 // Initialize Firebase
 document.getElementById('setupOverlay').classList.add('hidden');
+
+function setSyncStatus(color, text) {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncStatusText');
+  if (dot) { dot.className = 'sync-dot ' + color; }
+  if (label) { label.textContent = text; }
+}
+
 initFirebase();
 
 // Smart init sequence
@@ -3280,20 +3288,10 @@ async function recoverKnownData() {
   renderAll();
 }
 
-initSync();
-
-renderHome();
 initVerseDots();
-renderFood();
-renderAppa();
-renderMustang();
-renderDebts();
-renderHistory();
-renderPaidSummary();
-renderBills();
-renderGoals();
-renderIncome();
-renderOtherExpenses();
+(async () => {
+  await initSync();
+})();
 </script>
 
 
