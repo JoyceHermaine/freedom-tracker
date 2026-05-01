@@ -1516,7 +1516,38 @@ function checkMonthlyReset() {
   showToast('🌸 New month! ' + currentMonthKey + ' budgets reset!');
 }
 
-// ===================== EXPENSE LOG =====================
+// ===================== SLOAN BILLS MIGRATION =====================
+function migrateSLoanBills() {
+  if (!state.bills) return;
+
+  // Check if migration already done
+  const hasNewEntries = state.bills.some(b => b.id === 'b17' || b.id === 'b18' || b.id === 'b19' || b.id === 'b20');
+  const hasOldEntries = state.bills.some(b => b.name === 'MariBank SLoan' || b.name === 'MariBank SLoans x2');
+  if (hasNewEntries && !hasOldEntries) return; // Already migrated
+
+  // Remove old SLoan entries
+  const oldSLoanIds = new Set(['b9','b10','b11','b13','b14','b16']);
+  state.bills = state.bills.filter(b => !oldSLoanIds.has(b.id) && b.name !== 'MariBank SLoan' && b.name !== 'MariBank SLoans x2');
+
+  // Add all 10 correct SLoan entries
+  const newSLoans = [
+    { date:5,  name:'SLoan (₱6,700)',  amount:2565, urgent:true,  paid:false, id:'b17', category:'loan' },
+    { date:5,  name:'SLoan (₱19,400)', amount:7427, urgent:true,  paid:false, id:'b18', category:'loan' },
+    { date:16, name:'SLoan (₱2,500)',  amount:957,  urgent:false, paid:false, id:'b19', category:'loan' },
+    { date:19, name:'SLoan (₱3,000)',  amount:1149, urgent:false, paid:false, id:'b9',  category:'loan' },
+    { date:20, name:'SLoan (₱3,000)',  amount:1149, urgent:false, paid:false, id:'b10', category:'loan' },
+    { date:23, name:'SLoan (₱2,500)',  amount:957,  urgent:false, paid:false, id:'b11', category:'loan' },
+    { date:24, name:'SLoan (₱11,500)', amount:4403, urgent:false, paid:false, id:'b13', category:'loan' },
+    { date:26, name:'SLoan (₱10,000)', amount:3828, urgent:false, paid:false, id:'b14', category:'loan' },
+    { date:27, name:'SLoan (₱3,000)',  amount:1149, urgent:false, paid:false, id:'b16', category:'loan' },
+    { date:27, name:'SLoan (₱13,700)', amount:5245, urgent:false, paid:false, id:'b20', category:'loan' },
+  ];
+  state.bills = [...state.bills, ...newSLoans];
+  // Sort bills by date
+  state.bills.sort((a, b) => a.date - b.date);
+  saveState();
+  console.log('✅ SLoan bills migrated to 10 correct entries');
+}
 function logExpense(emoji, description, amount, type, ref) {
   if (!state.paymentHistory) state.paymentHistory = [];
   const now = new Date();
@@ -3432,6 +3463,7 @@ async function initSync() {
   }
   setSyncStatus('green', 'Synced ✓');
   checkMonthlyReset();
+  migrateSLoanBills();
   renderAll();
   // Real-time listener for Emil updates
   if (_firebaseRef) {
