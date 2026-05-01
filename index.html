@@ -3384,6 +3384,12 @@ function undoEntry(entryId) {
     const debt = state.debts.find(d => d.id === entry.ref);
     if (debt) debt.balance = Math.min(debt.initial, debt.balance + entry.amount);
     state.totalPaid = Math.max(0, state.totalPaid - entry.amount);
+  } else if (entry.type === 'spaylater' && entry.ref) {
+    // Remove SPayLater purchase from spaylaterPurchases and recalc bills
+    if (state.spaylaterPurchases) {
+      state.spaylaterPurchases = state.spaylaterPurchases.filter(p => p.id !== entry.ref);
+    }
+    recalcSpBills();
   }
 
   // Remove entry from history
