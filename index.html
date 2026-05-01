@@ -1554,7 +1554,13 @@ const safeArr = (ca, la) => {
   ca = ca||[]; la = la||[];
   if (!ca.length) return la;
   if (!la.length) return ca;
-  return ca.length >= la.length ? ca : la;
+  // Merge by ID — cloud wins for existing entries, local adds new ones not in cloud
+  const merged = [...ca];
+  const cloudIds = new Set(ca.map(e => e.id).filter(Boolean));
+  la.forEach(e => {
+    if (e.id && !cloudIds.has(e.id)) merged.push(e);
+  });
+  return merged;
 };
 
 async function pullFromCloud(silent) {
