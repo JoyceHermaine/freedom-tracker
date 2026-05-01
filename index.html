@@ -3379,7 +3379,8 @@ function renderHistory() {
     mustang: h => (h.type === 'expense' && h.ref === 'mustang') ||
                   (h.type === 'debtpay' && h.ref === 'l300') ||
                   (h.type === 'bill' && h.ref === 'b15') ||
-                  (h.type === 'other' && ((h.description||'').includes('Mustang RFID') || (h.description||'').includes('🚛 Mustang') || (h.description||'') === 'Mustang')),
+                  (h.type === 'other' && ((h.description||'').includes('Mustang RFID') || (h.description||'').includes('🚛 Mustang') || (h.description||'') === 'Mustang')) ||
+                  (h.type === 'spaylater' && (h.description||'').toLowerCase().includes('mustang')),
     transfer: h => h.type === 'transfer',
   };
   const history = allHistory.filter(filterMap[_historyFilter] || (() => true));
