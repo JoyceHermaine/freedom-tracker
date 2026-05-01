@@ -1858,13 +1858,12 @@ function logExpense(emoji, description, amount, type, ref) {
     emoji,
     description,
     amount,
-    type: type || 'expense',   // 'expense' | 'bill' | 'undo'
-    ref: ref || null,          // bill id or budget key for reversal
+    type: type || 'expense',
+    ref: ref || null,
     name: getUserName(),
     date: now.toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'}),
     time: now.toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'}),
   });
-  if (state.paymentHistory.length > 50) state.paymentHistory = state.paymentHistory.slice(0, 50);
 }
 
 // ===================== NAME / USER =====================
