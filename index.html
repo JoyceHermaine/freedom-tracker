@@ -1306,6 +1306,7 @@ let state = {
   otherExpenses: JSON.parse(localStorage.getItem('je_otherExpenses') || '[]'),
   budgetHistory: JSON.parse(localStorage.getItem('je_budgetHistory') || '[]'),
   lastBudgetMonth: localStorage.getItem('je_lastBudgetMonth') || '',
+  lastBillMonth: localStorage.getItem('je_lastBillMonth') || '',
 };
 
 // ===================== FIREBASE SYNC =====================
@@ -1369,6 +1370,7 @@ function getDataToSave() {
     paymentHistory: state.paymentHistory || [],
     budgetHistory: state.budgetHistory || [],
     lastBudgetMonth: state.lastBudgetMonth || '',
+    lastBillMonth: state.lastBillMonth || '',
     lastUpdated: new Date().toISOString(),
     updatedBy: localStorage.getItem('je_userName') || 'Joyce',
   };
@@ -1419,6 +1421,7 @@ async function pullFromCloud(silent) {
     state.savings = Math.max(cloud.savings||0, state.savings||0);
     state.budgetHistory = safeArr(cloud.budgetHistory, state.budgetHistory || []);
     state.lastBudgetMonth = cloud.lastBudgetMonth || state.lastBudgetMonth || '';
+    state.lastBillMonth = cloud.lastBillMonth || state.lastBillMonth || '';
     saveLocalOnly();
     setSyncStatus('green', 'Synced ✓');
     return true;
@@ -1474,6 +1477,7 @@ function saveLocalOnly() {
   localStorage.setItem('je_otherExpenses', JSON.stringify(state.otherExpenses || []));
   localStorage.setItem('je_budgetHistory', JSON.stringify(state.budgetHistory || []));
   localStorage.setItem('je_lastBudgetMonth', state.lastBudgetMonth || '');
+  localStorage.setItem('je_lastBillMonth', state.lastBillMonth || '');
 }
 
 function saveState() {
@@ -1515,8 +1519,29 @@ function checkMonthlyReset() {
   state.mustangSpent = 0;
   state.lastBudgetMonth = currentMonthKey;
 
+  // Bills carry-over logic
+  if (!state.lastBillMonth || state.lastBillMonth !== currentMonthKey) {
+    const prevMonthKey = state.lastBillMonth || months[now.getMonth() === 0 ? 11 : now.getMonth() - 1] + ' ' + (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
+    state.bills = state.bills.map(b => {
+      // Skip bills linked to fully paid debts
+      const debtId = BILL_DEBT_MAP[b.id];
+      if (debtId) {
+        const debt = state.debts.find(d => d.id === debtId);
+        if (debt && debt.balance <= 0) return null; // Remove fully paid debt bills
+      }
+      if (b.paid) {
+        // Paid bills reset to unpaid for new month, clear overdue tag
+        return { ...b, paid: false, overdueMonth: null };
+      } else {
+        // Unpaid bills carry over with overdue tag
+        return { ...b, overdueMonth: prevMonthKey };
+      }
+    }).filter(Boolean); // Remove nulls (paid-off debt bills)
+    state.lastBillMonth = currentMonthKey;
+  }
+
   saveState();
-  showToast('🌸 New month! ' + currentMonthKey + ' budgets reset!');
+  showToast('🌸 New month! ' + currentMonthKey + ' budgets & bills reset!');
 }
 
 // ===================== SHARED HELPERS =====================
@@ -3150,7 +3175,7 @@ function makeBillEl(b, cls, daysLeft, isPaid) {
     </div>
     <div class="bill-info" style="flex:1;">
       <div class="bill-name" style="${isPaid ? 'text-decoration:line-through;color:var(--muted);' : ''}">${b.name}</div>
-      <div class="bill-note">${isPaid ? '✅ Paid!' : daysLeft <= 0 ? '⚠️ Due today!' : daysLeft + ' days left'}</div>
+      <div class="bill-note">${isPaid ? '✅ Paid!' : b.overdueMonth ? `⚠️ Overdue from ${b.overdueMonth}` : daysLeft <= 0 ? '⚠️ Due today!' : daysLeft + ' days left'}</div>
       ${progressBar}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
@@ -3170,6 +3195,7 @@ function toggleBillPaid(id) {
 
   if (!bill.paid) {
     bill.paid = true;
+    bill.overdueMonth = null; // Clear overdue tag when paid
     // Deduct from linked debt balance
     if (isDebtBill) {
       const debt = state.debts.find(d => d.id === debtId);
