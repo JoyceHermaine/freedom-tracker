@@ -3119,6 +3119,11 @@ let _pendingUndoId = null;
 function undoIncome(incomeId) {
   const entry = (state.incomeLog || []).find(e => e.id === incomeId);
   if (!entry) return;
+  // Permission check — only the logger can undo
+  if (entry.name && entry.name !== getUserName()) {
+    showToast('⛔ Only ' + entry.name + ' can undo this entry!');
+    return;
+  }
   _pendingUndoId = incomeId;
   document.getElementById('undoModalDesc').innerHTML =
     '<strong>Income: ' + (entry.source || '') + '</strong><br>' +
@@ -3140,6 +3145,11 @@ function undoIncome(incomeId) {
 function confirmUndo(entryId) {
   const entry = (state.paymentHistory || []).find(h => h.id === entryId);
   if (!entry) return;
+  // Permission check — only the logger can undo
+  if (entry.name && entry.name !== getUserName()) {
+    showToast('⛔ Only ' + entry.name + ' can undo this entry!');
+    return;
+  }
   _pendingUndoId = entryId;
   document.getElementById('undoModalDesc').innerHTML =
     '<strong>' + (entry.description || entry.debt || '') + '</strong><br>' +
