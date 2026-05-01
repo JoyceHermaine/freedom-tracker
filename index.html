@@ -587,6 +587,13 @@ function doPost(e){
     <span id="syncBannerText">Syncing...</span>
   </div>
 
+  <!-- MONTHLY RESET BANNER -->
+  <div id="monthlyResetBanner" style="display:none; background:linear-gradient(135deg,#fff0f5,#f5e6ff); border:2px solid var(--pink-light); border-radius:16px; padding:14px 16px; margin-bottom:12px; position:relative;">
+    <button onclick="dismissMonthlyBanner()" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted);">✕</button>
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--pink);margin-bottom:6px;" id="monthlyBannerTitle">🌸 New Month!</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);" id="monthlyBannerBody"></div>
+  </div>
+
   <div class="cheer-box" id="cheerBox" style="cursor:pointer;">
     <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.15em; color:var(--pink); opacity:0.7; margin-bottom:6px;">Today's Verse 🌸</div>
     <div class="cheer-emoji" id="cheerEmoji">✝️</div>
@@ -1542,6 +1549,40 @@ function checkMonthlyReset() {
 
   saveState();
   showToast('🌸 New month! ' + currentMonthKey + ' budgets & bills reset!');
+  showMonthlyResetBanner(currentMonthKey);
+}
+
+function showMonthlyResetBanner(monthKey) {
+  const banner = document.getElementById('monthlyResetBanner');
+  const title = document.getElementById('monthlyBannerTitle');
+  const body = document.getElementById('monthlyBannerBody');
+  if (!banner || !body) return;
+
+  // Count unpaid bills for the month
+  const unpaidBills = (state.bills || []).filter(b => !b.paid && b.amount > 0);
+  const unpaidTotal = unpaidBills.reduce((s, b) => s + b.amount, 0);
+  const overdueCount = unpaidBills.filter(b => b.overdueMonth).length;
+  const available = getAvailableFunds();
+
+  title.textContent = '🌸 Welcome to ' + monthKey + '!';
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+      <div>✅ Food, Appa & Mustang budgets reset</div>
+      <div>📅 ${unpaidBills.length} bills unpaid · ${fmt(unpaidTotal)} total due</div>
+      ${overdueCount > 0 ? `<div style="color:var(--pink);">⚠️ ${overdueCount} bill${overdueCount > 1 ? 's' : ''} carried over from last month</div>` : ''}
+      <div>💰 Available Funds: <strong>${fmt(available)}</strong></div>
+    </div>
+  `;
+  banner.style.display = 'block';
+
+  // Auto-dismiss after 10 seconds
+  setTimeout(() => dismissMonthlyBanner(), 10000);
+}
+
+function dismissMonthlyBanner() {
+  const banner = document.getElementById('monthlyResetBanner');
+  if (banner) banner.style.display = 'none';
+}
 }
 
 // ===================== SHARED HELPERS =====================
