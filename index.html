@@ -1258,6 +1258,23 @@ function doPost(e){
   </div>
 </div>
 
+<!-- SPAYLATER ACCOUNT SELECTION MODAL -->
+<div class="modal-overlay" id="spPayAccountModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">🛍️ Which SPayLater Account?</div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:16px;font-weight:600;" id="spPayAccountBillName"></div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="confirmSpaylaterAccount('emil')" style="background:linear-gradient(135deg,#e8f0ff,#d0e4ff);border:2px solid #4361ee;border-radius:14px;padding:14px;font-size:14px;font-weight:800;color:#4361ee;cursor:pointer;font-family:Nunito,sans-serif;">
+        💪 Emil's Account<br><span style="font-size:11px;font-weight:600;color:var(--muted);">SPayLater Account 1</span>
+      </button>
+      <button onclick="confirmSpaylaterAccount('joyce')" style="background:linear-gradient(135deg,#fff0f5,#f5e6ff);border:2px solid var(--pink);border-radius:14px;padding:14px;font-size:14px;font-weight:800;color:var(--pink);cursor:pointer;font-family:Nunito,sans-serif;">
+        🌸 Joyce's Account<br><span style="font-size:11px;font-weight:600;color:var(--muted);">SPayLater Account 2</span>
+      </button>
+    </div>
+    <span class="modal-close" onclick="document.getElementById('spPayAccountModal').style.display='none'">Cancel</span>
+  </div>
+</div>
+
 <!-- BUDGET EDIT MODAL -->
 <div class="modal-overlay" id="budgetEditModal" style="display:none;">
   <div class="modal">
@@ -2767,30 +2784,42 @@ function confirmBillPayment(method) {
   const bill = state.bills?.find(b=>b.id===_pendingBillPayId);
   if (!bill) return;
   if (method==='spaylater') {
-    const acc = getUserName().toLowerCase()==='emil' ? 'emil' : 'joyce';
-    const today = new Date().toISOString().split('T')[0];
-    addSpaylaterPurchase(bill.name, bill.amount, today, 'digital', acc, true);
-    bill.paid = true;
-    bill.overdueMonth = null;
-    bill.paidViaSPayLater = true;
-    // If it's a debt-linked bill, update debt balance and totalPaid
-    const debtId = BILL_DEBT_MAP[bill.id];
-    if (debtId) {
-      const debt = state.debts.find(d => d.id === debtId);
-      if (debt) debt.balance = Math.max(0, debt.balance - bill.amount);
-      state.totalPaid += bill.amount;
-    }
-    logExpense('🛍️', 'SPayLater: Paid ' + bill.name, bill.amount, 'spaylater_bill', bill.id);
-    saveState();
-    renderBills();
-    renderHome();
-    renderDebts();
-    renderSpBillProjection();
-    confetti();
-    showToast('🛍️ Paid via SPayLater! Added to installments. 🌸');
+    // Show account selection modal
+    const nameEl = document.getElementById('spPayAccountBillName');
+    if (nameEl) nameEl.textContent = bill.name + ' — ' + fmt(bill.amount);
+    document.getElementById('spPayAccountModal').style.display='flex';
   } else {
     toggleBillPaid(_pendingBillPayId);
+    _pendingBillPayId = null;
   }
+}
+
+function confirmSpaylaterAccount(acc) {
+  document.getElementById('spPayAccountModal').style.display='none';
+  if (!_pendingBillPayId) return;
+  const bill = state.bills?.find(b=>b.id===_pendingBillPayId);
+  if (!bill) return;
+  const today = new Date().toISOString().split('T')[0];
+  addSpaylaterPurchase(bill.name, bill.amount, today, 'digital', acc, true);
+  bill.paid = true;
+  bill.overdueMonth = null;
+  bill.paidViaSPayLater = true;
+  // Update debt balance and totalPaid
+  const debtId = BILL_DEBT_MAP[bill.id];
+  if (debtId) {
+    const debt = state.debts.find(d => d.id === debtId);
+    if (debt) debt.balance = Math.max(0, debt.balance - bill.amount);
+    state.totalPaid += bill.amount;
+  }
+  logExpense('🛍️', 'SPayLater ('+(acc==='emil'?'Emil':'Joyce')+'): Paid ' + bill.name, bill.amount, 'bill', bill.id);
+  logExpense('🛍️', 'SPayLater ('+(acc==='emil'?'Emil':'Joyce')+'): ' + bill.name, bill.amount, 'spaylater_bill', bill.id+'_sp');
+  saveState();
+  renderBills();
+  renderHome();
+  renderDebts();
+  renderSpBillProjection();
+  confetti();
+  showToast('🛍️ Paid via ' + (acc==='emil'?'Emil':'Joyce') + "'s SPayLater! Added to installments. 🌸");
   _pendingBillPayId = null;
 }
 
