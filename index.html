@@ -1300,7 +1300,6 @@ const BILLS = [
   { date:25, name:"Brother's Electric (half)", amount:800, urgent:false, paid:false, id:'b27', category:'family' },
   { date:25, name:"Brother's Internet", amount:1700, urgent:false, paid:false, id:'b28', category:'family' },
   { date:25, name:"Brother's Monthly Due", amount:150, urgent:false, paid:false, id:'b29', category:'family' },
-  { date:25, name:"Mom's Contribution (credit)", amount:-6500, urgent:false, paid:false, id:'b31', category:'family' },
   // May 26-27
   { date:26, name:'SLoan (₱10,000)', amount:3828, urgent:false, paid:false, id:'b14', category:'loan' },
   { date:27, name:'L300 Business Loan', amount:21309, urgent:false, paid:false, id:'b15', category:'loan' },
@@ -1601,6 +1600,10 @@ function dismissMonthlyBanner() {
 function migrateUtilityBillIds() {
   if (!state.bills) return;
   let changed = false;
+  // Remove Mom's Contribution credit bill — should be logged as income instead
+  const beforeLen = state.bills.length;
+  state.bills = state.bills.filter(b => b.id !== 'b31');
+  if (state.bills.length !== beforeLen) changed = true;
   state.bills = state.bills.map(b => {
     if (b.id === 'b17' && b.category === 'utility') { changed = true; return {...b, id:'b32'}; }
     if (b.id === 'b18' && b.category === 'utility') { changed = true; return {...b, id:'b33'}; }
@@ -2708,9 +2711,17 @@ function renderHome() {
   document.getElementById('overallBar').style.width = p + '%';
   document.getElementById('overallPct').textContent = p + '% free ' + (p > 50 ? '🌟' : p > 25 ? '🌿' : '🌱');
 
-  // Dynamic Due This Month — all unpaid bills including overdue
+  // Dynamic Due This Month — only bills visible this month (respects showFromDay)
+  const _nowHome = new Date();
   const unpaidTotal = (state.bills || [])
-    .filter(b => !b.paid && b.amount > 0)
+    .filter(b => {
+      if (b.paid || b.amount <= 0) return false;
+      if (b.showFromDay !== undefined && b.showFromMonth !== undefined) {
+        const showDate = new Date(_nowHome.getFullYear(), b.showFromMonth, b.showFromDay);
+        if (_nowHome < showDate) return false;
+      }
+      return true;
+    })
     .reduce((s, b) => s + b.amount, 0);
   const dueEl = document.getElementById('dueThisMonth');
   if (dueEl) dueEl.textContent = fmt(unpaidTotal);
