@@ -3361,11 +3361,11 @@ function undoEntry(entryId) {
       state.totalPaid = Math.max(0, state.totalPaid - bill.amount);
     }
   } else if (entry.type === 'expense' && entry.ref === 'food') {
-    state.foodSpent = Math.max(0, state.foodSpent - entry.amount);
+    state.foodSpent = Math.max(0, state.foodSpent - entry.amount); // keep state in sync
   } else if (entry.type === 'expense' && entry.ref === 'appa') {
-    state.appaSpent = Math.max(0, state.appaSpent - entry.amount);
+    state.appaSpent = Math.max(0, state.appaSpent - entry.amount); // keep state in sync
   } else if (entry.type === 'expense' && entry.ref === 'mustang') {
-    state.mustangSpent = Math.max(0, state.mustangSpent - entry.amount);
+    state.mustangSpent = Math.max(0, state.mustangSpent - entry.amount); // keep state in sync
   } else if (entry.type === 'other' && entry.ref) {
     state.otherExpenses = (state.otherExpenses||[]).filter(e => e.id !== entry.ref);
     renderOtherExpenses();
