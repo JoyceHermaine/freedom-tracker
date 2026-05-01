@@ -651,6 +651,25 @@ function doPost(e){
     </div>
   </div>
 
+  <!-- THIS MONTH VS LAST MONTH -->
+  <div class="card">
+    <div class="card-title">📊 This Month vs Last Month</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;background:linear-gradient(135deg,#fff0f5,#f5e6ff);border-radius:14px;padding:12px;text-align:center;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px;" id="thisMonthLabel">This Month</div>
+        <div style="font-family:'Righteous',cursive;font-size:20px;color:var(--pink);" id="thisMonthTotal">₱0</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">total spent</div>
+      </div>
+      <div style="flex:1;background:linear-gradient(135deg,#f0fff4,#e8f5ff);border-radius:14px;padding:12px;text-align:center;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px;" id="lastMonthLabel">Last Month</div>
+        <div style="font-family:'Righteous',cursive;font-size:20px;color:var(--blue);" id="lastMonthTotal">₱0</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">total spent</div>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:12px;font-weight:800;padding:6px 0;" id="monthDiffNote"></div>
+    <div id="monthlyBreakdown"></div>
+  </div>
+
   <!-- FOOD BUDGET TRACKER -->
   <div class="card">
     <div class="card-title" id="foodBudgetTitle" style="display:flex;justify-content:space-between;align-items:center;">🍱 Food Budget <button onclick="openBudgetEdit('food')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;font-family:Nunito,sans-serif;">✏️ Edit</button></div>
@@ -3071,6 +3090,7 @@ function renderHome() {
     monthLabel.textContent = now.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
   }
   renderMilestones();
+  renderMonthlyTracker();
 }
 
 // ===================== DEBTS =====================
