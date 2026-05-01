@@ -776,6 +776,7 @@ function doPost(e){
 
   <div class="card">
     <div class="card-title" id="urgentBillsTitle">🚨 Most Urgent</div>
+    <div id="urgentBillsSummary"></div>
     <div id="urgentBills"></div>
   </div>
 
@@ -2982,6 +2983,42 @@ function renderBills() {
 
   const unpaid = state.bills.filter(b => !b.paid && b.amount > 0).sort((a,b) => a.date - b.date);
   const paid = state.bills.filter(b => b.paid && b.amount > 0).sort((a,b) => a.date - b.date);
+
+  // Urgent bills total summary
+  const urgentUnpaid = unpaid.filter(b => b.urgent);
+  const urgentTotal = urgentUnpaid.reduce((s, b) => s + b.amount, 0);
+  const allUnpaidTotal = unpaid.reduce((s, b) => s + b.amount, 0);
+
+  // Calculate available funds
+  const totalIncomeSummary = [...(state.incomeLog||[])].reduce((s,e) => s+(e.amount||0), 0);
+  const totalBillsPaidSummary = (state.bills||[]).filter(b=>b.paid).reduce((s,b)=>s+b.amount,0);
+  const totalExpensesSummary = (state.paymentHistory||[]).filter(h=>h.type==='expense'&&['food','appa','mustang'].includes(h.ref)).reduce((s,h)=>s+(h.amount||0),0);
+  const totalOtherSummary = (state.otherExpenses||[]).reduce((s,e)=>s+e.amount,0);
+  const availableFunds = totalIncomeSummary - totalBillsPaidSummary - totalExpensesSummary - totalOtherSummary - (state.savings||0);
+  const canCover = availableFunds >= urgentTotal;
+
+  const summaryEl = document.getElementById('urgentBillsSummary');
+  if (summaryEl) {
+    summaryEl.innerHTML = urgentUnpaid.length === 0 ? '' : `
+      <div style="background:linear-gradient(135deg,${canCover?'#f0fff4,#e8f5e9':'#fff5f5,#ffe0e0'});border-radius:16px;padding:14px 16px;margin-bottom:12px;border:1.5px solid ${canCover?'#06d6a0':'#ff6b9d'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:${canCover?'#06d6a0':'var(--pink)'};">🚨 Urgent Total</div>
+          <div style="font-family:'Righteous',cursive;font-size:20px;color:${canCover?'#06d6a0':'var(--pink)'};">${fmt(urgentTotal)}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);">💰 Available Funds</div>
+          <div style="font-size:13px;font-weight:800;color:${availableFunds>=0?'var(--mint)':'var(--pink)'};">${fmt(availableFunds)}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);">📊 After Paying Urgent</div>
+          <div style="font-size:13px;font-weight:800;color:${(availableFunds-urgentTotal)>=0?'var(--mint)':'var(--pink)'};">${fmt(availableFunds - urgentTotal)}</div>
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px dashed ${canCover?'#06d6a0':'#ff6b9d'};font-size:11px;font-weight:800;color:${canCover?'#06d6a0':'var(--pink)'};text-align:center;">
+          ${canCover ? '✅ You have enough to cover urgent bills!' : '⚠️ Insufficient funds for urgent bills — plan needed!'}
+        </div>
+      </div>
+    `;
+  }
 
   // Unpaid bills
   unpaid.forEach(b => {
