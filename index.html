@@ -593,10 +593,11 @@ function doPost(e){
   <div class="tab active" onclick="switchTab('home')"><span class="tab-icon">🏠</span>Home</div>
   <div class="tab" onclick="switchTab('debts')"><span class="tab-icon">💳</span>Debts</div>
   <div class="tab" onclick="switchTab('bills')"><span class="tab-icon">📅</span>Bills</div>
+  <div class="tab" onclick="switchTab('spaylater')"><span class="tab-icon">🛍️</span>SPayLater</div>
   <div class="tab" onclick="switchTab('charts')"><span class="tab-icon">📊</span>Charts</div>
   <div class="tab" onclick="switchTab('goals')"><span class="tab-icon">⭐</span>Goals</div>
-  <div class="tab" onclick="switchTab('history')"><span class="tab-icon">📜</span>History</div>
   <div class="tab" onclick="switchTab('income')"><span class="tab-icon">💰</span>Income</div>
+  <div class="tab" onclick="switchTab('history')"><span class="tab-icon">📜</span>History</div>
 </div>
 
 <!-- HOME TAB -->
@@ -823,8 +824,12 @@ function doPost(e){
       <span id="paidBillsTotal" style="font-family:'Righteous',cursive; font-size:18px; color:var(--mint);">₱0</span>
     </div>
   </div>
+</div>
 
-  <!-- SPAYLATER TRACKER -->
+<!-- SPAYLATER TAB -->
+<div class="page" id="page-spaylater">
+  <div style="height:8px"></div>
+
   <div class="card">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
       🛍️ SPayLater Tracker
@@ -834,11 +839,8 @@ function doPost(e){
       </div>
     </div>
 
-    <!-- Bill projection -->
-    <div id="spBillProjection" style="margin-bottom:12px;"></div>
-
-    <!-- Add purchase form -->
-    <div style="background:#f9f0ff;border-radius:12px;padding:12px;margin-bottom:10px;">
+    <!-- Add purchase form at TOP -->
+    <div style="background:#f9f0ff;border-radius:12px;padding:12px;margin-bottom:12px;">
       <div style="font-size:11px;font-weight:800;color:var(--pink);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">➕ Log New Purchase</div>
       <input type="text" id="spItemName" placeholder="Item name (e.g. Bidet Set, Electricity bill)" class="modal-input" style="width:100%;margin-bottom:6px;font-size:13px;padding:9px 12px;box-sizing:border-box;">
       <div style="display:flex;gap:6px;margin-bottom:6px;">
@@ -852,6 +854,9 @@ function doPost(e){
       </div>
       <button onclick="addSpaylaterPurchase()" style="width:100%;background:linear-gradient(135deg,var(--pink),var(--lavender));border:none;border-radius:12px;color:white;font-weight:800;font-family:Nunito,sans-serif;font-size:13px;padding:11px;cursor:pointer;">💾 Save Purchase</button>
     </div>
+
+    <!-- Bill projection BELOW logger -->
+    <div id="spBillProjection"></div>
   </div>
 </div>
 
@@ -2984,13 +2989,13 @@ setInterval(rotateCheer, 15000);
 // ===================== TABS =====================
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    const names = ['home','debts','bills','charts','goals','history','income'];
-  // History filter tab names including tithes and transfer
+    const names = ['home','debts','bills','spaylater','charts','goals','income','history'];
     t.classList.toggle('active', names[i] === name);
   });
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if (name === 'charts') setTimeout(renderCharts, 100);
+  if (name === 'spaylater') { initSpaylaterForm(); renderSpBillProjection(); }
 }
 
 // ===================== HOME =====================
@@ -3345,7 +3350,7 @@ function renderHistory() {
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0;">
           <div style="font-family:'Righteous',cursive; font-size:14px; color:var(--mint);">+${fmt(h.amount)}</div>
-          ${(h.name || 'Joyce') === getUserName()
+          ${h.name === getUserName()
             ? `<button onclick="undoIncome('${h.id}')" style="background:#fff0e8; border:1px solid #ffd4b8; border-radius:8px; padding:5px 12px; font-size:11px; font-weight:800; color:var(--peach); cursor:pointer; font-family:Nunito,sans-serif;">↩ Undo</button>`
             : `<span style="font-size:10px;color:var(--muted);font-style:italic;">logged by ${h.name || 'Joyce'}</span>`
           }
@@ -3396,7 +3401,7 @@ function renderHistory() {
       const nameBg = isJoyce ? '#fff0f5' : '#e8f5ff';
       if (!h.id) h.id = 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2);
       const currentUser = getUserName();
-      const canUndo = h.type !== 'undo' && (!h.name || h.name === currentUser);
+      const canUndo = h.type !== 'undo' && h.name === currentUser;
       return `
       <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--border);">
         <div style="font-size:20px; flex-shrink:0;">${h.emoji || '🚛'}</div>
@@ -3428,7 +3433,7 @@ function renderHistory() {
     // Ensure every entry has an id for undo
     if (!h.id) h.id = 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     const currentUser = getUserName();
-    const canUndo = h.type !== 'undo' && (!h.name || h.name === currentUser);
+    const canUndo = h.type !== 'undo' && h.name === currentUser;
     const lockedMsg = h.name && h.name !== currentUser ? `<span style="font-size:10px;color:var(--muted);font-style:italic;">logged by ${h.name}</span>` : '';
     return `
     <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--border);">
@@ -3564,8 +3569,6 @@ function renderBills() {
       toggleBillPaid(this.dataset.id);
     });
   });
-  initSpaylaterForm();
-  renderSpBillProjection();
 }
 
 function makeBillEl(b, cls, daysLeft, isPaid) {
