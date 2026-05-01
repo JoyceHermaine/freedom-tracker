@@ -842,7 +842,7 @@ function doPost(e){
     <div class="card-title">🌈 3-Month Relief Countdown</div>
     <div class="prog-item">
       <div class="prog-header">
-        <span class="prog-name">MariBank SLoans ending</span>
+        <span class="prog-name">SLoans ending</span>
         <span class="prog-vals">Jul 2026</span>
       </div>
       <div class="prog-track">
@@ -1214,7 +1214,7 @@ const INITIAL_DEBTS = [
   { id:'secbank', name:'Security Bank CC', emoji:'💜', initial:38279, balance:38279, monthly:2329, color:'#c77dff', note:'Over credit limit!' },
   { id:'car', name:'Personal Car Loan', emoji:'🚗', initial:615200, balance:469240, monthly:15842, color:'#ff9a6c', note:'Due 16th · 40 payments left' },
   { id:'l300', name:'L300 Business Loan', emoji:'🚛', initial:827504, balance:765559.83, monthly:21309, color:'#ffd166', note:'Due 27th · 53 payments left · ends Sep 2030' },
-  { id:'sloan', name:'MariBank SLoans (9)', emoji:'📱', initial:75300, balance:75300, monthly:28828, color:'#e53e3e', note:'All 3/3 unpaid — URGENT' },
+  { id:'sloan', name:'SLoans (10)', emoji:'📱', initial:75300, balance:75300, monthly:28828, color:'#e53e3e', note:'All 3/3 unpaid — URGENT' },
   { id:'maribank', name:'MariBank Loans (3)', emoji:'🏦', initial:30000, balance:30000, monthly:10885, color:'#118ab2', note:'Ends Jul 2026' },
   { id:'spaylater', name:'SPayLater (both)', emoji:'🛍️', initial:49709, balance:49709, monthly:40320, color:'#06d6a0', note:'Due May 5!' },
 ];
@@ -1233,6 +1233,7 @@ const BILL_DEBT_MAP = {
   'b8': 'car',
   'b9': 'sloan', 'b10': 'sloan', 'b11': 'sloan',
   'b13': 'sloan', 'b14': 'sloan', 'b16': 'sloan',
+  'b17': 'sloan', 'b18': 'sloan', 'b19': 'sloan', 'b20': 'sloan',
   'b15': 'l300',
 };
 
@@ -1259,13 +1260,17 @@ const BILLS = [
   { date:15, name:'Spotify', amount:200, urgent:false, paid:false, id:'b22', category:'subscription' },
   { date:15, name:'Claude AI', amount:1300, urgent:false, paid:false, id:'b23', category:'subscription' },
   { date:15, name:'iCloud', amount:600, urgent:false, paid:false, id:'b24', category:'subscription' },
+  // SLoans — 5th (2 loans due on 5th)
+  { date:5,  name:'SLoan (₱6,700)',  amount:2565, urgent:true,  paid:false, id:'b17', category:'loan' },
+  { date:5,  name:'SLoan (₱19,400)', amount:7427, urgent:true,  paid:false, id:'b18', category:'loan' },
   // SLoans mid-month
-  { date:19, name:'MariBank SLoan', amount:1149, urgent:false, paid:false, id:'b9', category:'loan' },
-  { date:20, name:'MariBank SLoan', amount:1149, urgent:false, paid:false, id:'b10', category:'loan' },
-  { date:23, name:'MariBank SLoan', amount:957, urgent:false, paid:false, id:'b11', category:'loan' },
+  { date:16, name:'SLoan (₱2,500)',  amount:957,  urgent:false, paid:false, id:'b19', category:'loan' },
+  { date:19, name:'SLoan (₱3,000)',  amount:1149, urgent:false, paid:false, id:'b9',  category:'loan' },
+  { date:20, name:'SLoan (₱3,000)',  amount:1149, urgent:false, paid:false, id:'b10', category:'loan' },
+  { date:23, name:'SLoan (₱2,500)',  amount:957,  urgent:false, paid:false, id:'b11', category:'loan' },
   // May 24
   { date:24, name:'Apartment Rent (own)', amount:11000, urgent:false, paid:false, id:'b12', category:'rent' },
-  { date:24, name:'MariBank SLoan', amount:4403, urgent:false, paid:false, id:'b13', category:'loan' },
+  { date:24, name:'SLoan (₱11,500)', amount:4403, urgent:false, paid:false, id:'b13', category:'loan' },
   // May 25 - Family support (net after mom's 6500)
   { date:25, name:"Brother's Rent", amount:7000, urgent:false, paid:false, id:'b25', category:'family' },
   { date:25, name:"Brother's Water (half)", amount:200, urgent:false, paid:false, id:'b26', category:'family' },
@@ -1274,9 +1279,10 @@ const BILLS = [
   { date:25, name:"Brother's Monthly Due", amount:150, urgent:false, paid:false, id:'b29', category:'family' },
   { date:25, name:"Mom's Contribution (credit)", amount:-6500, urgent:false, paid:false, id:'b31', category:'family' },
   // May 26-27
-  { date:26, name:'MariBank SLoan', amount:3828, urgent:false, paid:false, id:'b14', category:'loan' },
+  { date:26, name:'SLoan (₱10,000)', amount:3828, urgent:false, paid:false, id:'b14', category:'loan' },
   { date:27, name:'L300 Business Loan', amount:21309, urgent:false, paid:false, id:'b15', category:'loan' },
-  { date:27, name:'MariBank SLoans x2', amount:6393, urgent:false, paid:false, id:'b16', category:'loan' },
+  { date:27, name:'SLoan (₱3,000)',  amount:1149, urgent:false, paid:false, id:'b16', category:'loan' },
+  { date:27, name:'SLoan (₱13,700)', amount:5245, urgent:false, paid:false, id:'b20', category:'loan' },
 ];
 
 // ===================== STATE =====================
@@ -2293,7 +2299,7 @@ function renderMilestones() {
 
   const milestones = [
     {
-      emoji: '🌱', label: 'Pay off MariBank SLoans', date: '~Jul 2026',
+      emoji: '🌱', label: 'Pay off SLoans', date: '~Jul 2026',
       done: () => { const d = getDebt('sloan'); return d && d.balance === 0; }
     },
     {
