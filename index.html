@@ -2686,6 +2686,7 @@ function addSpaylaterPurchase(itemName, amount, dateStr, type, account, skipForm
   state.spaylaterPurchases.unshift(purchase);
   logExpense('🛍️', 'SPayLater ('+(acc==='emil'?'Emil':'Joyce')+'): '+name, amt, 'spaylater', purchase.id);
   recalcSpBills();
+  autoMarkBillPaid(name, amt);
 
   if (!skipForm) {
     if (document.getElementById('spItemName')) document.getElementById('spItemName').value='';
@@ -2695,6 +2696,37 @@ function addSpaylaterPurchase(itemName, amount, dateStr, type, account, skipForm
   saveState();
   renderSpBillProjection();
   showToast('🛍️ Purchase logged! Installments added to upcoming bills. 🌸');
+}
+
+function autoMarkBillPaid(itemName, amount) {
+  if (!state.bills || !itemName) return;
+  const n = itemName.toLowerCase();
+
+  // Keyword map: [billId, requiredWords array (any match)]
+  const BILL_KEYWORD_MAP = [
+    { id:'b34', words:[['internet','own'],['internet','own']], label:'Internet (own)' },
+    { id:'b33', words:[['electric','own'],['electricity','own']], label:'Electric Bill (own)' },
+    { id:'b35', words:[['electric','mom'],['electric','emil'],['electricity','mom'],['electricity','emil']], label:"Emil's Mom Electric" },
+    { id:'b27', words:[['electric','brother'],['electricity','brother']], label:"Brother's Electric" },
+    { id:'b28', words:[['internet','brother']], label:"Brother's Internet" },
+  ];
+
+  let matched = null;
+  for (const entry of BILL_KEYWORD_MAP) {
+    const hit = entry.words.some(pair => pair.every(word => n.includes(word)));
+    if (hit) { matched = entry; break; }
+  }
+  if (!matched) return;
+
+  const bill = state.bills.find(b => b.id === matched.id);
+  if (!bill || bill.paid) return; // already paid or not found
+
+  // Mark as paid via SPayLater
+  bill.paid = true;
+  bill.overdueMonth = null;
+  bill.paidViaSPayLater = true;
+  logExpense('🛍️', 'SPayLater: Paid ' + matched.label, amount, 'spaylater_bill', bill.id);
+  showToast('✅ ' + matched.label + ' automatically marked as paid! 🌸');
 }
 
 function recalcSpBills() {
