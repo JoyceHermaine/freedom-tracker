@@ -2811,8 +2811,7 @@ function confirmSpaylaterAccount(acc) {
     if (debt) debt.balance = Math.max(0, debt.balance - bill.amount);
     state.totalPaid += bill.amount;
   }
-  logExpense('🛍️', 'SPayLater ('+(acc==='emil'?'Emil':'Joyce')+'): Paid ' + bill.name, bill.amount, 'bill', bill.id);
-  logExpense('🛍️', 'SPayLater ('+(acc==='emil'?'Emil':'Joyce')+'): ' + bill.name, bill.amount, 'spaylater_bill', bill.id+'_sp');
+  logExpense('🛍️', 'SPayLater ('+(acc==='emil'?'Emil':'Joyce')+'): Paid ' + bill.name, bill.amount, 'spaylater_bill', bill.id);
   saveState();
   renderBills();
   renderHome();
@@ -3436,7 +3435,17 @@ function renderHistory() {
 
   const filterMap = {
     all: () => true,
-    payment: h => ['bill','debtpay'].includes(h.type),
+    payment: h => {
+      if (['bill','debtpay','spaylater_bill'].includes(h.type)) return true;
+      // Smart keyword matching for SPayLater entries that are bill payments
+      if (h.type === 'spaylater') {
+        const desc = (h.description || '').toLowerCase();
+        const hasBillType = desc.includes('internet') || desc.includes('electric');
+        const hasOwner = desc.includes('own') || desc.includes('brother') || desc.includes('mom') || desc.includes('emil');
+        if (hasBillType && hasOwner) return true;
+      }
+      return false;
+    },
     goals: h => ['goalsave','savings'].includes(h.type),
     expense: h => ['expense','other'].includes(h.type) && h.type !== 'tithes' && !((h.description||'').includes('Mustang') || (h.description||'').includes('mustang')),
     tithes: h => h.type === 'tithes' || (h.type === 'other' && h.ref === 'tithes'),
