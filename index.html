@@ -4143,11 +4143,7 @@ async function initSync() {
   const pulled = await pullFromCloud(true);
   const hasIncome = (state.incomeLog||[]).length > 0;
   const hasHistory = (state.paymentHistory||[]).length > 0;
-  if (!hasIncome && !hasHistory) {
-    await recoverKnownData();
-    await pushToCloud();
-    showToast('✅ Data restored & synced! 🌸');
-  } else if (!pulled) {
+  if (!pulled) {
     await pushToCloud();
   }
   setSyncStatus('green', 'Synced ✓');
@@ -4190,45 +4186,6 @@ async function initSync() {
       }
     });
   }
-}
-
-// ============================================================
-// DATA RECOVERY — Restore known Apr 29 data if lost
-// ============================================================
-async function recoverKnownData() {
-  if (localStorage.getItem('je_recovery_done') === '3.0') return;
-  state.incomeLog = [
-    { id:'rec_1', source:'Joyce Salary Remaining - BPI', amount:39577, name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
-    { id:'rec_2', source:'Joyce Salary Remaining - Security Bank', amount:27570, name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
-    { id:'rec_3', source:'To Balance: Food Allowance Adjustment', amount:639, name:'Joyce', date:'Apr 29, 2026', time:'03:35 PM' },
-    { id:'rec_4', source:'Joyce Maribank', amount:140, name:'Joyce', date:'Apr 29, 2026', time:'04:30 PM' },
-    { id:'rec_5', source:'Emil BPI Remaining', amount:713, name:'Emil', date:'Apr 29, 2026', time:'05:03 PM' },
-    { id:'rec_6', source:'Emil Maribank remaining', amount:464, name:'Emil', date:'Apr 29, 2026', time:'05:04 PM' },
-    { id:'rec_7', source:'Emil Gcash Remaining', amount:503, name:'Emil', date:'Apr 29, 2026', time:'05:06 PM' },
-    { id:'rec_8', source:'Emil Maya Savings', amount:286, name:'Emil', date:'Apr 29, 2026', time:'05:07 PM' },
-    { id:'rec_9', source:'Emil Cash On Hand', amount:10600, name:'Emil', date:'Apr 29, 2026', time:'05:29 PM' },
-  ];
-  state.paymentHistory = [
-    { id:'ph_rec_1', emoji:'💰', description:'Income: Joyce Salary Remaining - BPI', amount:39577, type:'income', ref:'rec_1', name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
-    { id:'ph_rec_2', emoji:'💰', description:'Income: Joyce Salary Remaining - Security Bank', amount:27570, type:'income', ref:'rec_2', name:'Joyce', date:'Apr 29, 2026', time:'12:32 AM' },
-    { id:'ph_rec_3', emoji:'💰', description:'Income: To Balance: Food Allowance Adjustment', amount:639, type:'income', ref:'rec_3', name:'Joyce', date:'Apr 29, 2026', time:'03:35 PM' },
-    { id:'ph_rec_4', emoji:'💰', description:'Income: Joyce Maribank', amount:140, type:'income', ref:'rec_4', name:'Joyce', date:'Apr 29, 2026', time:'04:30 PM' },
-    { id:'ph_rec_5', emoji:'💰', description:'Income: Emil BPI Remaining', amount:713, type:'income', ref:'rec_5', name:'Emil', date:'Apr 29, 2026', time:'05:03 PM' },
-    { id:'ph_rec_6', emoji:'💰', description:'Income: Emil Maribank remaining', amount:464, type:'income', ref:'rec_6', name:'Emil', date:'Apr 29, 2026', time:'05:04 PM' },
-    { id:'ph_rec_7', emoji:'💰', description:'Income: Emil Gcash Remaining', amount:503, type:'income', ref:'rec_7', name:'Emil', date:'Apr 29, 2026', time:'05:06 PM' },
-    { id:'ph_rec_8', emoji:'💰', description:'Income: Emil Maya Savings', amount:286, type:'income', ref:'rec_8', name:'Emil', date:'Apr 29, 2026', time:'05:07 PM' },
-    { id:'ph_rec_9', emoji:'💰', description:'Income: Emil Cash On Hand', amount:10600, type:'income', ref:'rec_9', name:'Emil', date:'Apr 29, 2026', time:'05:29 PM' },
-    { id:'ph_exp_1', emoji:'🍱', description:'Food expense: FoodPanda', amount:639, type:'expense', ref:'food', name:'Joyce', date:'Apr 29, 2026', time:'10:00 AM' },
-    { id:'ph_exp_2', emoji:'💸', description:'Paid: Internet (own)', amount:1909, type:'bill', ref:'b19', name:'Joyce', date:'Apr 29, 2026', time:'03:00 PM' },
-    { id:'ph_exp_3', emoji:'💸', description:'Paid: Security Bank CC', amount:3500, type:'debtpay', ref:'secbank', name:'Joyce', date:'Apr 29, 2026', time:'03:00 PM' },
-  ];
-  state.foodSpent = 639;
-  state.totalPaid = 5409;
-  const secbank = state.debts.find(d => d.id === 'secbank');
-  if (secbank) secbank.balance = 34779;
-  localStorage.setItem('je_recovery_done', '3.0');
-  saveLocalOnly();
-  renderAll();
 }
 
 initVerseDots();
