@@ -3436,7 +3436,12 @@ function filterHistory(type) {
 function renderHistory() {
   const el = document.getElementById('paymentHistory');
   if (!el) return;
-  const allHistory = state.paymentHistory || [];
+  const allHistory = (state.paymentHistory || []).slice().sort((a, b) => {
+    // Sort by date descending (newest first)
+    const dateA = new Date((a.date || '') + ' ' + (a.time || ''));
+    const dateB = new Date((b.date || '') + ' ' + (b.time || ''));
+    return dateB - dateA;
+  });
 
   // Filter based on selected tab
   // For income filter — use MERGED list (incomeLog + paymentHistory income entries)
