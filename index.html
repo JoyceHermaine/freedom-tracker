@@ -485,6 +485,23 @@
 
 
 <!-- ===== SETUP OVERLAY ===== -->
+<!-- USER SELECTION OVERLAY -->
+<div id="userSelectOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#ff6b9d,#c77dff,#74c7e8);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
+  <div style="font-size:48px;margin-bottom:12px;">🌸</div>
+  <div style="font-family:'Righteous',cursive;font-size:28px;color:white;margin-bottom:6px;text-align:center;">Joyce & Emil</div>
+  <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:32px;font-weight:600;text-align:center;">Debt Freedom Tracker</div>
+  <div style="font-size:15px;color:white;font-weight:800;margin-bottom:20px;text-align:center;letter-spacing:0.05em;">WHO ARE YOU? 👇</div>
+  <div style="display:flex;flex-direction:column;gap:14px;width:100%;max-width:300px;">
+    <button onclick="selectUser('Joyce')" style="background:white;border:none;border-radius:20px;padding:20px;font-size:18px;font-weight:800;color:var(--pink);cursor:pointer;font-family:Nunito,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;gap:10px;">
+      🌸 I'm Joyce
+    </button>
+    <button onclick="selectUser('Emil')" style="background:white;border:none;border-radius:20px;padding:20px;font-size:18px;font-weight:800;color:#4361ee;cursor:pointer;font-family:Nunito,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;gap:10px;">
+      💪 I'm Emil
+    </button>
+  </div>
+  <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:24px;text-align:center;">This device will remember your choice</div>
+</div>
+
 <div class="setup-overlay hidden" id="setupOverlay">
   <div class="setup-logo">🌸</div>
   <div class="setup-title">Set Up Cloud Sync</div>
@@ -563,9 +580,12 @@ function doPost(e){
   <h1>Joyce & Emil</h1>
   <div class="header-sub">Debt Freedom Tracker</div>
   <div class="header-date" id="todayDate"></div>
-  <div class="sync-status" onclick="showSyncInfo()" id="syncStatusBadge">
-    <div class="sync-dot yellow" id="syncDot"></div>
-    <span id="syncStatusText">Not connected</span>
+  <div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;">
+    <div class="sync-status" onclick="showSyncInfo()" id="syncStatusBadge">
+      <div class="sync-dot yellow" id="syncDot"></div>
+      <span id="syncStatusText">Not connected</span>
+    </div>
+    <button onclick="promptSwitchUser()" id="currentUserBadge" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:99px;padding:4px 12px;font-size:11px;font-weight:800;color:white;cursor:pointer;font-family:Nunito,sans-serif;">👤 Joyce</button>
   </div>
 </div>
 
@@ -1386,7 +1406,36 @@ let _firebaseRef = null;
 let _manualSyncMode = false;
 
 const SYNC_URL_KEY = 'je_syncUrl';
-function getSyncUrl() { return 'firebase'; }
+function selectUser(name) {
+  localStorage.setItem('je_userName', name);
+  document.getElementById('userSelectOverlay').style.display = 'none';
+  updateUserBadge();
+  showToast('Welcome, ' + name + '! 🌸');
+}
+
+function promptSwitchUser() {
+  if (confirm('Switch user?\n\nCurrent: ' + getUserName() + '\n\nTap OK to switch.')) {
+    document.getElementById('userSelectOverlay').style.display = 'flex';
+  }
+}
+
+function updateUserBadge() {
+  const badge = document.getElementById('currentUserBadge');
+  if (!badge) return;
+  const name = getUserName();
+  badge.textContent = (name === 'Emil' ? '💪 ' : '🌸 ') + name;
+  badge.style.background = name === 'Emil' ? 'rgba(67,97,238,0.3)' : 'rgba(255,255,255,0.2)';
+}
+
+function checkUserSetup() {
+  const name = localStorage.getItem('je_userName');
+  if (!name) {
+    document.getElementById('userSelectOverlay').style.display = 'flex';
+  } else {
+    document.getElementById('userSelectOverlay').style.display = 'none';
+    updateUserBadge();
+  }
+}
 
 function initFirebase() {
   try {
@@ -3962,6 +4011,7 @@ async function initSync() {
   migrateSpaylaterBalance();
   recalcSpBills();
   renderAll();
+  checkUserSetup();
   // Real-time listener for Emil updates
   if (_firebaseRef) {
     _firebaseRef.on('value', (snapshot) => {
