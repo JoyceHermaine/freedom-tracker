@@ -1517,7 +1517,34 @@ function checkMonthlyReset() {
   showToast('🌸 New month! ' + currentMonthKey + ' budgets reset!');
 }
 
-// ===================== SLOAN BILLS MIGRATION =====================
+// ===================== SHARED HELPERS =====================
+function getAvailableFunds() {
+  // Merge incomeLog + paymentHistory income entries (same as renderIncome)
+  const _phInc = (state.paymentHistory || [])
+    .filter(h => h.type === 'income')
+    .map(h => ({ id: h.id, amount: h.amount || 0 }));
+  const _ilIds = new Set((state.incomeLog || []).map(e => e.id));
+  const merged = [...(state.incomeLog || [])];
+  _phInc.forEach(e => { if (!_ilIds.has(e.id)) merged.push(e); });
+  const totalIncome = merged.reduce((s, e) => s + (e.amount || 0), 0);
+  const totalBillsPaid = (state.bills || []).filter(b => b.paid && b.amount > 0).reduce((s, b) => s + b.amount, 0);
+  const totalExpenses = (state.paymentHistory || []).filter(h => h.type === 'expense' && ['food','appa','mustang'].includes(h.ref)).reduce((s, h) => s + (h.amount || 0), 0);
+  const totalOther = (state.otherExpenses || []).reduce((s, e) => s + e.amount, 0);
+  return totalIncome - totalBillsPaid - totalExpenses - totalOther - (state.savings || 0);
+}
+
+// ===================== DEBT NAME MIGRATION =====================
+function migrateDebtNames() {
+  if (!state.debts) return;
+  let changed = false;
+  state.debts.forEach(d => {
+    if (d.id === 'sloan' && d.name !== 'SLoans (10)') {
+      d.name = 'SLoans (10)';
+      changed = true;
+    }
+  });
+  if (changed) { saveState(); console.log('✅ Debt names migrated'); }
+}
 function migrateSLoanBills() {
   if (!state.bills) return;
 
@@ -2987,14 +3014,7 @@ function renderBills() {
   // Urgent bills total summary
   const urgentUnpaid = unpaid.filter(b => b.urgent);
   const urgentTotal = urgentUnpaid.reduce((s, b) => s + b.amount, 0);
-  const allUnpaidTotal = unpaid.reduce((s, b) => s + b.amount, 0);
-
-  // Calculate available funds
-  const totalIncomeSummary = [...(state.incomeLog||[])].reduce((s,e) => s+(e.amount||0), 0);
-  const totalBillsPaidSummary = (state.bills||[]).filter(b=>b.paid).reduce((s,b)=>s+b.amount,0);
-  const totalExpensesSummary = (state.paymentHistory||[]).filter(h=>h.type==='expense'&&['food','appa','mustang'].includes(h.ref)).reduce((s,h)=>s+(h.amount||0),0);
-  const totalOtherSummary = (state.otherExpenses||[]).reduce((s,e)=>s+e.amount,0);
-  const availableFunds = totalIncomeSummary - totalBillsPaidSummary - totalExpensesSummary - totalOtherSummary - (state.savings||0);
+  const availableFunds = getAvailableFunds();
   const canCover = availableFunds >= urgentTotal;
 
   const summaryEl = document.getElementById('urgentBillsSummary');
@@ -3501,6 +3521,7 @@ async function initSync() {
   setSyncStatus('green', 'Synced ✓');
   checkMonthlyReset();
   migrateSLoanBills();
+  migrateDebtNames();
   renderAll();
   // Real-time listener for Emil updates
   if (_firebaseRef) {
