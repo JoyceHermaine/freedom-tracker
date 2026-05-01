@@ -2213,7 +2213,8 @@ function renderIncome() {
     .reduce((s,h) => s + (h.amount||0), 0);
   const totalOther = (state.otherExpenses||[]).reduce((s,e) => s+e.amount, 0);
   const available = totalIncome - totalBillsPaid - totalExpenses - totalOther - (state.savings || 0);
-  const obligations = 197234;
+  // Dynamic obligations — sum of all debt monthly minimums
+  const obligations = (state.debts || []).reduce((s, d) => s + (d.monthly || 0), 0);
 
   // Total display
   const totalEl = document.getElementById('incomeTotalDisplay');
