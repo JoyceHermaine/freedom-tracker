@@ -2855,18 +2855,31 @@ function totalDebt() { return state.debts.reduce((a,d) => a+d.balance, 0); }
 function totalInitial() { return state.debts.reduce((a,d) => a+d.initial, 0); }
 
 // ===================== FOOD BUDGET =====================
+function getMonthSpent(ref) {
+  const now = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const curMonth = months[now.getMonth()];
+  const curYear = now.getFullYear().toString();
+  return (state.paymentHistory || [])
+    .filter(h => h.type === 'expense' && h.ref === ref &&
+      (h.date || '').includes(curMonth) && (h.date || '').includes(curYear))
+    .reduce((s, h) => s + (h.amount || 0), 0);
+}
+
 function renderFood() {
   const now = new Date();
   const monthName = now.toLocaleDateString('en-PH', { month: 'long' });
   const titleEl = document.getElementById('foodBudgetTitle');
   if (titleEl) titleEl.innerHTML = '🍱 ' + monthName + ' Food Budget <button onclick="openBudgetEdit(\'food\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;font-family:Nunito,sans-serif;">✏️ Edit</button>';
-  const remaining = state.foodBudget - state.foodSpent;
-  const pctSpent = Math.min(100, (state.foodSpent / state.foodBudget) * 100);
+  const spent = getMonthSpent('food');
+  state.foodSpent = spent; // Keep state in sync
+  const remaining = state.foodBudget - spent;
+  const pctSpent = Math.min(100, (spent / state.foodBudget) * 100);
   const color = pctSpent > 80 ? 'linear-gradient(90deg,#e53e3e,#ff6b9d)' : pctSpent > 60 ? 'linear-gradient(90deg,#ffd166,#ff9a6c)' : 'linear-gradient(90deg,#06d6a0,#ffd166)';
   document.getElementById('foodRemaining').textContent = fmt(remaining) + ' remaining';
   document.getElementById('foodBar').style.width = pctSpent + '%';
   document.getElementById('foodBar').style.background = color;
-  document.getElementById('foodPct').textContent = fmt(state.foodSpent) + ' spent of ' + fmt(state.foodBudget) + ' budget 🍱';
+  document.getElementById('foodPct').textContent = spent > state.foodBudget ? '⚠️ Over budget by ' + fmt(spent - state.foodBudget) + '!' : fmt(spent) + ' spent of ' + fmt(state.foodBudget) + ' budget 🍱';
 }
 
 function addFoodSpend() {
@@ -2884,8 +2897,11 @@ function addFoodSpend() {
   }
 }
 
-function renderFuelTracker(spentKey, budgetKey, barId, remainingId, pctId, label, emoji) {
-  const spent = state[spentKey];
+function renderFuelTracker(ref, budgetKey, barId, remainingId, pctId, label, emoji) {
+  const spent = getMonthSpent(ref);
+  // Keep state in sync
+  if (ref === 'appa') state.appaSpent = spent;
+  if (ref === 'mustang') state.mustangSpent = spent;
   const budget = state[budgetKey];
   const remaining = budget - spent;
   const p = Math.min(100, (spent / budget) * 100);
@@ -2902,10 +2918,10 @@ function renderFuelTracker(spentKey, budgetKey, barId, remainingId, pctId, label
 }
 
 function renderAppa() {
-  renderFuelTracker('appaSpent','appaBudget','appaBar','appaRemaining','appaPct','Appa Gas','⛽');
+  renderFuelTracker('appa','appaBudget','appaBar','appaRemaining','appaPct','Appa Gas','⛽');
 }
 function renderMustang() {
-  renderFuelTracker('mustangSpent','mustangBudget','mustangBar','mustangRemaining','mustangPct','Mustang Diesel','⛽');
+  renderFuelTracker('mustang','mustangBudget','mustangBar','mustangRemaining','mustangPct','Mustang Diesel','⛽');
 }
 
 function addAppaSpend() {
