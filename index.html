@@ -1759,7 +1759,7 @@ function getAvailableFunds() {
   const merged = [...(state.incomeLog || [])];
   _phInc.forEach(e => { if (!_ilIds.has(e.id)) merged.push(e); });
   const totalIncome = merged.reduce((s, e) => s + (e.amount || 0), 0);
-  const totalBillsPaid = (state.bills || []).filter(b => b.paid && b.amount > 0).reduce((s, b) => s + b.amount, 0);
+  const totalBillsPaid = (state.bills || []).filter(b => b.paid && b.amount > 0 && !b.paidViaSPayLater).reduce((s, b) => s + b.amount, 0);
   const totalExpenses = (state.paymentHistory || []).filter(h => h.type === 'expense' && ['food','appa','mustang'].includes(h.ref)).reduce((s, h) => s + (h.amount || 0), 0);
   const totalOther = (state.otherExpenses || []).reduce((s, e) => s + e.amount, 0);
   return totalIncome - totalBillsPaid - totalExpenses - totalOther - (state.savings || 0);
@@ -2165,7 +2165,7 @@ function renderIncome() {
   const _mergedForTotal = [...(state.incomeLog || [])];
   _phInc2.forEach(e => { if (!_ilIds3.has(e.id)) _mergedForTotal.push(e); });
   const totalIncome = _mergedForTotal.reduce((s, e) => s + (e.amount || 0), 0);
-  const totalBillsPaid = (state.bills || []).filter(b => b.paid).reduce((s,b) => s + b.amount, 0);
+  const totalBillsPaid = (state.bills || []).filter(b => b.paid && !b.paidViaSPayLater).reduce((s,b) => s + b.amount, 0);
   // Use paymentHistory for food/appa/mustang so monthly reset doesn't affect available funds
   const totalExpenses = (state.paymentHistory||[])
     .filter(h => h.type === 'expense' && ['food','appa','mustang'].includes(h.ref))
@@ -2275,7 +2275,7 @@ function renderIncome() {
         .filter(h => h.type === 'expense' && ['food','appa','mustang'].includes(h.ref))
         .reduce((s,h) => s + (h.amount||0), 0);
       const totalOther2 = (state.otherExpenses||[]).reduce((s,e) => s+e.amount, 0);
-      const totalBillsPaid2 = (state.bills||[]).filter(b=>b.paid).reduce((s,b)=>s+b.amount,0);
+      const totalBillsPaid2 = (state.bills||[]).filter(b=>b.paid&&!b.paidViaSPayLater).reduce((s,b)=>s+b.amount,0);
       const available2 = mergedTotal - totalBillsPaid2 - totalExpenses2 - totalOther2 - (state.savings||0);
       const avEl2 = document.getElementById('availableCash');
       if (avEl2) { avEl2.textContent = fmt(Math.max(0, available2)); avEl2.style.color = available2 >= 0 ? 'var(--mint)' : 'var(--pink)'; }
@@ -2754,9 +2754,18 @@ function confirmBillPayment(method) {
     bill.paid = true;
     bill.overdueMonth = null;
     bill.paidViaSPayLater = true;
+    // If it's a debt-linked bill, update debt balance and totalPaid
+    const debtId = BILL_DEBT_MAP[bill.id];
+    if (debtId) {
+      const debt = state.debts.find(d => d.id === debtId);
+      if (debt) debt.balance = Math.max(0, debt.balance - bill.amount);
+      state.totalPaid += bill.amount;
+    }
+    logExpense('🛍️', 'SPayLater: Paid ' + bill.name, bill.amount, 'spaylater_bill', bill.id);
     saveState();
     renderBills();
     renderHome();
+    renderDebts();
     renderSpBillProjection();
     confetti();
     showToast('🛍️ Paid via SPayLater! Added to installments. 🌸');
