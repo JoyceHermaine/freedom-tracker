@@ -637,7 +637,8 @@ function doPost(e){
       <div class="prog-pct" id="foodPct">₱0 spent of ₱12,000 budget 🍱</div>
     </div>
     <div style="display:flex; gap:8px; margin-top:10px;">
-      <input type="number" id="foodSpendInput" placeholder="Add food expense (₱)" class="modal-input" style="flex:1; font-size:13px; padding:10px 12px;">
+      <input type="text" id="foodSpendNote" placeholder="Note (e.g. Jollibee, groceries)" class="modal-input" style="flex:2; font-size:13px; padding:10px 12px;">
+      <input type="number" id="foodSpendInput" placeholder="₱" class="modal-input" style="flex:1; font-size:13px; padding:10px 12px;">
       <button onclick="addFoodSpend()" style="background:linear-gradient(135deg,#06d6a0,#118ab2); border:none; border-radius:12px; color:white; font-weight:800; font-family:Nunito,sans-serif; font-size:13px; padding:10px 16px; cursor:pointer;">+Add</button>
     </div>
   </div>
@@ -656,7 +657,8 @@ function doPost(e){
       <div class="prog-pct" id="appaPct">₱0 spent of ₱3,000 budget ⛽</div>
     </div>
     <div style="display:flex; gap:8px; margin-top:10px;">
-      <input type="number" id="appaSpendInput" placeholder="Add gas expense (₱)" class="modal-input" style="flex:1; font-size:13px; padding:10px 12px;">
+      <input type="text" id="appaSpendNote" placeholder="Note (e.g. Shell EDSA, full tank)" class="modal-input" style="flex:2; font-size:13px; padding:10px 12px;">
+      <input type="number" id="appaSpendInput" placeholder="₱" class="modal-input" style="flex:1; font-size:13px; padding:10px 12px;">
       <button onclick="addAppaSpend()" style="background:linear-gradient(135deg,#ff9a6c,#ffd166); border:none; border-radius:12px; color:white; font-weight:800; font-family:Nunito,sans-serif; font-size:13px; padding:10px 16px; cursor:pointer;">+Add</button>
     </div>
   </div>
@@ -675,7 +677,8 @@ function doPost(e){
       <div class="prog-pct" id="mustangPct">₱0 spent of ₱20,000 budget ⛽</div>
     </div>
     <div style="display:flex; gap:8px; margin-top:10px;">
-      <input type="number" id="mustangSpendInput" placeholder="Add diesel expense (₱)" class="modal-input" style="flex:1; font-size:13px; padding:10px 12px;">
+      <input type="text" id="mustangSpendNote" placeholder="Note (e.g. Petron SLEX, 50L)" class="modal-input" style="flex:2; font-size:13px; padding:10px 12px;">
+      <input type="number" id="mustangSpendInput" placeholder="₱" class="modal-input" style="flex:1; font-size:13px; padding:10px 12px;">
       <button onclick="addMustangSpend()" style="background:linear-gradient(135deg,#ffd166,#ff6b9d); border:none; border-radius:12px; color:white; font-weight:800; font-family:Nunito,sans-serif; font-size:13px; padding:10px 16px; cursor:pointer;">+Add</button>
     </div>
   </div>
@@ -683,7 +686,6 @@ function doPost(e){
   <!-- OTHER EXPENSES -->
   <div class="card">
     <div class="card-title">🧾 Other Expenses</div>
-    <div id="otherExpensesList" style="margin-bottom:10px;"></div>
     <div style="display:flex;gap:8px;margin-bottom:8px;">
       <select id="otherExpenseCategory" style="flex:1;padding:9px 12px;border:2px solid var(--border);border-radius:12px;font-size:13px;font-family:Nunito,sans-serif;font-weight:700;color:var(--text);outline:none;background:white;">
         <option value="🎂 Celebration">🎂 Celebration</option>
@@ -2423,9 +2425,11 @@ function renderFood() {
 function addFoodSpend() {
   const val = parseFloat(document.getElementById('foodSpendInput').value);
   if (isNaN(val) || val <= 0) return;
+  const note = document.getElementById('foodSpendNote').value.trim();
   state.foodSpent += val;
-  logExpense('🍱', 'Food', val, 'expense', 'food');
+  logExpense('🍱', note ? 'Food — ' + note : 'Food', val, 'expense', 'food');
   document.getElementById('foodSpendInput').value = '';
+  document.getElementById('foodSpendNote').value = '';
   saveState();
   renderFood();
   if (state.foodSpent > state.foodBudget) {
@@ -2460,9 +2464,11 @@ function renderMustang() {
 function addAppaSpend() {
   const val = parseFloat(document.getElementById('appaSpendInput').value);
   if (isNaN(val) || val <= 0) return;
+  const note = document.getElementById('appaSpendNote').value.trim();
   state.appaSpent += val;
-  logExpense('🚗', 'Appa Gas', val, 'expense', 'appa');
+  logExpense('🚗', note ? 'Appa Gas — ' + note : 'Appa Gas', val, 'expense', 'appa');
   document.getElementById('appaSpendInput').value = '';
+  document.getElementById('appaSpendNote').value = '';
   saveState();
   renderAppa();
 }
@@ -2470,9 +2476,11 @@ function addAppaSpend() {
 function addMustangSpend() {
   const val = parseFloat(document.getElementById('mustangSpendInput').value);
   if (isNaN(val) || val <= 0) return;
+  const note = document.getElementById('mustangSpendNote').value.trim();
   state.mustangSpent += val;
-  logExpense('🚛', 'Mustang Diesel', val, 'expense', 'mustang');
+  logExpense('🚛', note ? 'Mustang Diesel — ' + note : 'Mustang Diesel', val, 'expense', 'mustang');
   document.getElementById('mustangSpendInput').value = '';
+  document.getElementById('mustangSpendNote').value = '';
   saveState();
   renderMustang();
 }
