@@ -4165,6 +4165,8 @@ async function initSync() {
         state.incomeLog = safeArr(cloud.incomeLog, state.incomeLog);
         state.paymentHistory = safeArr(cloud.paymentHistory, state.paymentHistory);
         state.otherExpenses = safeArr(cloud.otherExpenses, state.otherExpenses);
+        state.spaylaterPurchases = safeArr(cloud.spaylaterPurchases, state.spaylaterPurchases || []);
+        state.budgetHistory = safeArr(cloud.budgetHistory, state.budgetHistory || []);
         state.debts = cloud.debts || state.debts;
         state.goals = cloud.goals || state.goals;
         state.bills = cloud.bills || state.bills;
