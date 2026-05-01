@@ -3332,7 +3332,23 @@ function undoEntry(entryId) {
   const entry = state.paymentHistory[idx];
 
   // Reverse the effect based on type and ref
-  if (entry.type === 'bill' && entry.ref) {
+  if (entry.type === 'spaylater_bill' && entry.ref) {
+    // Reverse SPayLater bill payment
+    const bill = state.bills.find(b => b.id === entry.ref);
+    if (bill) {
+      bill.paid = false;
+      bill.paidViaSPayLater = false;
+      bill.overdueMonth = null;
+    }
+    // Remove the associated SPayLater purchase (logged at same time, same bill.id ref)
+    if (state.spaylaterPurchases) {
+      const spIdx = state.spaylaterPurchases.findIndex(p =>
+        p.name && entry.description && entry.description.includes(p.name)
+      );
+      if (spIdx !== -1) state.spaylaterPurchases.splice(spIdx, 1);
+    }
+    recalcSpBills();
+  } else if (entry.type === 'bill' && entry.ref) {
     // Reverse bill payment — mark bill unpaid, restore debt balance
     const bill = state.bills.find(b => b.id === entry.ref);
     if (bill && bill.paid) {
