@@ -803,6 +803,36 @@ function doPost(e){
       <span id="paidBillsTotal" style="font-family:'Righteous',cursive; font-size:18px; color:var(--mint);">₱0</span>
     </div>
   </div>
+
+  <!-- SPAYLATER TRACKER -->
+  <div class="card">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+      🛍️ SPayLater Tracker
+      <div style="display:flex;gap:6px;">
+        <button onclick="setSPayTab('emil')" id="sptab_emil" style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;border:none;cursor:pointer;background:var(--blue);color:white;">Emil</button>
+        <button onclick="setSPayTab('joyce')" id="sptab_joyce" style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;background:white;color:var(--muted);">Joyce</button>
+      </div>
+    </div>
+
+    <!-- Bill projection -->
+    <div id="spBillProjection" style="margin-bottom:12px;"></div>
+
+    <!-- Add purchase form -->
+    <div style="background:#f9f0ff;border-radius:12px;padding:12px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:800;color:var(--pink);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">➕ Log New Purchase</div>
+      <input type="text" id="spItemName" placeholder="Item name (e.g. Bidet Set, Electricity bill)" class="modal-input" style="width:100%;margin-bottom:6px;font-size:13px;padding:9px 12px;box-sizing:border-box;">
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <input type="number" id="spAmount" placeholder="Amount (₱)" class="modal-input" style="flex:1;font-size:13px;padding:9px 12px;">
+        <input type="date" id="spDate" class="modal-input" style="flex:1;font-size:13px;padding:9px 12px;">
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button onclick="setSpType('mall')" id="sptype_mall" style="flex:1;padding:8px;border-radius:10px;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;background:white;color:var(--muted);">🏬 Mall</button>
+        <button onclick="setSpType('nonmall')" id="sptype_nonmall" style="flex:1;padding:8px;border-radius:10px;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;background:white;color:var(--muted);">🏪 Non-Mall</button>
+        <button onclick="setSpType('digital')" id="sptype_digital" style="flex:1;padding:8px;border-radius:10px;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;border:none;cursor:pointer;background:var(--pink);color:white;">💻 Digital</button>
+      </div>
+      <button onclick="addSpaylaterPurchase()" style="width:100%;background:linear-gradient(135deg,var(--pink),var(--lavender));border:none;border-radius:12px;color:white;font-weight:800;font-family:Nunito,sans-serif;font-size:13px;padding:11px;cursor:pointer;">💾 Save Purchase</button>
+    </div>
+  </div>
 </div>
 
 <!-- CHARTS TAB -->
@@ -947,6 +977,7 @@ function doPost(e){
     <button onclick="filterHistory('income')" id="hf_income" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">💰 Income</button>
     <button onclick="filterHistory('expense')" id="hf_expense" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">🧾 Expenses</button>
     <button onclick="filterHistory('tithes')" id="hf_tithes" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">🙏 Tithes</button>
+    <button onclick="filterHistory('spaylater')" id="hf_spaylater" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">🛍️ SPayLater</button>
     <button onclick="filterHistory('mustang')" id="hf_mustang" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">🚛 Mustang</button>
     <button onclick="filterHistory('transfer')" id="hf_transfer" style="padding:7px 16px;border-radius:99px;font-size:12px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;white-space:nowrap;background:white;color:var(--muted);">💸 Transfers</button>
   </div>
@@ -1197,6 +1228,23 @@ function doPost(e){
   </div>
 </div>
 
+<!-- SPAYLATER PAYMENT METHOD MODAL -->
+<div class="modal-overlay" id="spPayMethodModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">💳 How did you pay?</div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:16px;" id="spPayMethodBillName"></div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="confirmBillPayment('cash')" style="background:linear-gradient(135deg,#e8f5e9,#d0f5e8);border:2px solid #06d6a0;border-radius:14px;padding:14px;font-size:14px;font-weight:800;color:#06d6a0;cursor:pointer;font-family:Nunito,sans-serif;">
+        💰 Cash / Bank Transfer<br><span style="font-size:11px;font-weight:600;color:var(--muted);">Deducts from available funds</span>
+      </button>
+      <button onclick="confirmBillPayment('spaylater')" style="background:linear-gradient(135deg,#fff0f5,#f5e6ff);border:2px solid var(--pink);border-radius:14px;padding:14px;font-size:14px;font-weight:800;color:var(--pink);cursor:pointer;font-family:Nunito,sans-serif;">
+        🛍️ SPayLater (Digital)<br><span style="font-size:11px;font-weight:600;color:var(--muted);">Adds to SPayLater installments</span>
+      </button>
+    </div>
+    <span class="modal-close" onclick="document.getElementById('spPayMethodModal').style.display='none'">Cancel</span>
+  </div>
+</div>
+
 <!-- UNDO CONFIRM MODAL -->
 <div class="modal-overlay" id="undoModal" style="display:none;">
   <div class="modal">
@@ -1326,6 +1374,7 @@ let state = {
   budgetHistory: JSON.parse(localStorage.getItem('je_budgetHistory') || '[]'),
   lastBudgetMonth: localStorage.getItem('je_lastBudgetMonth') || '',
   lastBillMonth: localStorage.getItem('je_lastBillMonth') || '',
+  spaylaterPurchases: JSON.parse(localStorage.getItem('je_spaylaterPurchases') || '[]'),
 };
 
 // ===================== FIREBASE SYNC =====================
@@ -1390,6 +1439,7 @@ function getDataToSave() {
     budgetHistory: state.budgetHistory || [],
     lastBudgetMonth: state.lastBudgetMonth || '',
     lastBillMonth: state.lastBillMonth || '',
+    spaylaterPurchases: state.spaylaterPurchases || [],
     lastUpdated: new Date().toISOString(),
     updatedBy: localStorage.getItem('je_userName') || 'Joyce',
   };
@@ -1441,6 +1491,7 @@ async function pullFromCloud(silent) {
     state.budgetHistory = safeArr(cloud.budgetHistory, state.budgetHistory || []);
     state.lastBudgetMonth = cloud.lastBudgetMonth || state.lastBudgetMonth || '';
     state.lastBillMonth = cloud.lastBillMonth || state.lastBillMonth || '';
+    state.spaylaterPurchases = safeArr(cloud.spaylaterPurchases, state.spaylaterPurchases || []);
     saveLocalOnly();
     setSyncStatus('green', 'Synced ✓');
     return true;
@@ -1497,6 +1548,7 @@ function saveLocalOnly() {
   localStorage.setItem('je_budgetHistory', JSON.stringify(state.budgetHistory || []));
   localStorage.setItem('je_lastBudgetMonth', state.lastBudgetMonth || '');
   localStorage.setItem('je_lastBillMonth', state.lastBillMonth || '');
+  localStorage.setItem('je_spaylaterPurchases', JSON.stringify(state.spaylaterPurchases || []));
 }
 
 function saveState() {
@@ -2459,6 +2511,214 @@ function saveBudgetEdit() {
 }
 
 
+// ===================== SPAYLATER TRACKER =====================
+const SPAYLATER_BILL_IDS = {
+  emil:  { current: 'b1',  upcoming: ['b36','b37','b38','b43'] },
+  joyce: { current: 'b2',  upcoming: ['b39','b40','b41','b42'] },
+};
+const SPAY_ELECTRIC_INTERNET_IDS = new Set(['b33','b34','b35','b27','b28']);
+let _spTab = 'emil';
+let _spType = 'digital';
+let _pendingBillPayId = null;
+const SPAY_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const SPAY_SEED = {
+  'b1':31764,'b2':17945,
+  'b36':18598,'b39':16858,
+  'b37':9414,'b40':16216,
+  'b38':8401,'b41':8889,
+  'b43':2560,'b42':1008,
+};
+const SPAY_BILL_MONTH_MAP = {
+  'b1':  { m:4,  y:2026 }, 'b2':  { m:4,  y:2026 },
+  'b36': { m:5,  y:2026 }, 'b39': { m:5,  y:2026 },
+  'b37': { m:6,  y:2026 }, 'b40': { m:6,  y:2026 },
+  'b38': { m:7,  y:2026 }, 'b41': { m:7,  y:2026 },
+  'b43': { m:8,  y:2026 }, 'b42': { m:8,  y:2026 },
+};
+
+function setSPayTab(tab) {
+  _spTab = tab;
+  const eBg = tab==='emil'?'var(--blue)':'white', eColor = tab==='emil'?'white':'var(--muted)';
+  const jBg = tab==='joyce'?'var(--pink)':'white', jColor = tab==='joyce'?'white':'var(--muted)';
+  const eBtn = document.getElementById('sptab_emil');
+  const jBtn = document.getElementById('sptab_joyce');
+  if (eBtn) { eBtn.style.background=eBg; eBtn.style.color=eColor; eBtn.style.border=tab==='emil'?'none':'2px solid var(--border)'; }
+  if (jBtn) { jBtn.style.background=jBg; jBtn.style.color=jColor; jBtn.style.border=tab==='joyce'?'none':'2px solid var(--border)'; }
+  renderSpBillProjection();
+}
+
+function setSpType(type) {
+  _spType = type;
+  ['mall','nonmall','digital'].forEach(t => {
+    const btn = document.getElementById('sptype_'+t);
+    if (!btn) return;
+    const colors = {mall:'var(--blue)',nonmall:'var(--mint)',digital:'var(--pink)'};
+    btn.style.background = t===type ? colors[t] : 'white';
+    btn.style.color = t===type ? 'white' : 'var(--muted)';
+    btn.style.border = t===type ? 'none' : '2px solid var(--border)';
+  });
+}
+
+function calcSpFirstBillDate(purchaseDateStr, type) {
+  const d = new Date(purchaseDateStr);
+  let eff = new Date(d);
+  if (type==='mall') eff.setDate(eff.getDate()+15);
+  else if (type==='nonmall') eff.setDate(eff.getDate()+7);
+  const day = eff.getDate();
+  const offset = day < 24 ? 1 : 2;
+  return new Date(eff.getFullYear(), eff.getMonth()+offset, 1);
+}
+
+function addSpaylaterPurchase(itemName, amount, dateStr, type, account, skipForm) {
+  const name  = itemName  || (document.getElementById('spItemName')?.value?.trim());
+  const amt   = amount    || parseFloat(document.getElementById('spAmount')?.value);
+  const date  = dateStr   || document.getElementById('spDate')?.value;
+  const acc   = account   || _spTab;
+  const typ   = type      || _spType;
+  if (!name || isNaN(amt) || amt<=0 || !date) { showToast('Please fill in all fields!'); return; }
+
+  const inst = Math.round((amt/3)*100)/100;
+  const first = calcSpFirstBillDate(date, typ);
+  const billMonths = [0,1,2].map(i => {
+    const mo = new Date(first.getFullYear(), first.getMonth()+i, 1);
+    return SPAY_MONTHS[mo.getMonth()] + ' ' + mo.getFullYear();
+  });
+
+  const purchase = {
+    id: 'sp_'+Date.now(),
+    name, amount:amt, date, type:typ, account:acc,
+    installment:inst, billMonths,
+    loggedBy: getUserName(),
+    loggedAt: new Date().toISOString(),
+  };
+
+  if (!state.spaylaterPurchases) state.spaylaterPurchases = [];
+  state.spaylaterPurchases.unshift(purchase);
+  logExpense('🛍️', 'SPayLater ('+(acc==='emil'?'Emil':'Joyce')+'): '+name, amt, 'spaylater', purchase.id);
+  recalcSpBills();
+
+  if (!skipForm) {
+    if (document.getElementById('spItemName')) document.getElementById('spItemName').value='';
+    if (document.getElementById('spAmount')) document.getElementById('spAmount').value='';
+    if (document.getElementById('spDate')) document.getElementById('spDate').value=new Date().toISOString().split('T')[0];
+  }
+  saveState();
+  renderSpBillProjection();
+  showToast('🛍️ Purchase logged! Installments added to upcoming bills. 🌸');
+}
+
+function recalcSpBills() {
+  if (!state.bills) return;
+  // Reset all SPayLater bills to seed amounts
+  Object.entries(SPAY_SEED).forEach(([id, seed]) => {
+    const bill = state.bills.find(b => b.id===id);
+    if (bill) bill.amount = seed;
+  });
+  // Add installments from all logged purchases
+  (state.spaylaterPurchases||[]).forEach(p => {
+    p.billMonths.forEach((mKey, idx) => {
+      // Find the bill ID that matches this month key for this account
+      const allIds = p.account==='emil'
+        ? ['b1','b36','b37','b38','b43']
+        : ['b2','b39','b40','b41','b42'];
+      allIds.forEach(id => {
+        const mm = SPAY_BILL_MONTH_MAP[id];
+        if (!mm) return;
+        const key = SPAY_MONTHS[mm.m] + ' ' + mm.y;
+        if (key === mKey) {
+          const bill = state.bills.find(b => b.id===id);
+          if (bill) bill.amount = Math.round((bill.amount + p.installment)*100)/100;
+        }
+      });
+    });
+  });
+}
+
+function renderSpBillProjection() {
+  const el = document.getElementById('spBillProjection');
+  if (!el) return;
+  const acc = _spTab;
+  const ids = [SPAYLATER_BILL_IDS[acc].current, ...SPAYLATER_BILL_IDS[acc].upcoming];
+  const now = new Date();
+  const bills = ids.map(id => state.bills?.find(b=>b.id===id)).filter(Boolean);
+  if (!bills.length) { el.innerHTML=''; return; }
+  el.innerHTML = `
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
+      📅 ${acc==='emil'?'Emil':'Joyce'}'s Bill Forecast
+    </div>
+    ${bills.map(b => {
+      const mm = SPAY_BILL_MONTH_MAP[b.id];
+      const label = mm ? SPAY_MONTHS[mm.m]+' '+mm.y : SPAY_MONTHS[now.getMonth()]+' '+now.getFullYear();
+      const isCurrent = b.id==='b1'||b.id==='b2';
+      const isVisible = !b.showFromDay || now >= new Date(now.getFullYear(), b.showFromMonth, b.showFromDay);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:${isCurrent?'var(--pink)':'var(--text)'};">${label} — Due 5th</div>
+          <div style="font-size:10px;color:var(--muted);">${isCurrent?'⚠️ Due now':'📌 Upcoming'}${!isVisible?' · shows May 25':''}  </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="font-family:'Righteous',cursive;font-size:16px;color:${isCurrent?'var(--pink)':'var(--text)'};">${fmt(b.amount)}</div>
+          <button onclick="editSpBillAmount('${b.id}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;font-family:Nunito,sans-serif;">✏️</button>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function editSpBillAmount(billId) {
+  const bill = state.bills?.find(b=>b.id===billId);
+  if (!bill) return;
+  const newAmt = prompt('Edit bill amount for '+bill.name+':', bill.amount);
+  if (newAmt===null) return;
+  const val = parseFloat(newAmt);
+  if (isNaN(val)||val<0) { showToast('Invalid amount!'); return; }
+  // Update seed so recalc keeps this as base
+  SPAY_SEED[billId] = val;
+  bill.amount = val;
+  saveState();
+  renderSpBillProjection();
+  renderBills();
+  showToast('✅ Bill amount updated!');
+}
+
+function showSpPayMethodModal(billId) {
+  _pendingBillPayId = billId;
+  const bill = state.bills?.find(b=>b.id===billId);
+  const nameEl = document.getElementById('spPayMethodBillName');
+  if (nameEl&&bill) nameEl.textContent = bill.name+' — '+fmt(bill.amount);
+  document.getElementById('spPayMethodModal').style.display='flex';
+}
+
+function confirmBillPayment(method) {
+  document.getElementById('spPayMethodModal').style.display='none';
+  if (!_pendingBillPayId) return;
+  const bill = state.bills?.find(b=>b.id===_pendingBillPayId);
+  if (!bill) return;
+  if (method==='spaylater') {
+    const acc = getUserName().toLowerCase()==='emil' ? 'emil' : 'joyce';
+    const today = new Date().toISOString().split('T')[0];
+    addSpaylaterPurchase(bill.name, bill.amount, today, 'digital', acc, true);
+    bill.paid = true;
+    bill.overdueMonth = null;
+    bill.paidViaSPayLater = true;
+    saveState();
+    renderBills();
+    renderHome();
+    renderSpBillProjection();
+    confetti();
+    showToast('🛍️ Paid via SPayLater! Added to installments. 🌸');
+  } else {
+    toggleBillPaid(_pendingBillPayId);
+  }
+  _pendingBillPayId = null;
+}
+
+function initSpaylaterForm() {
+  const d = document.getElementById('spDate');
+  if (d&&!d.value) d.value = new Date().toISOString().split('T')[0];
+  setSpType('digital');
+  setSPayTab('emil');
+}
+
 const fmt = n => '₱' + Math.round(n).toLocaleString('en-PH');
 const pct = (paid, total) => Math.min(100, Math.max(0, (paid/total)*100)).toFixed(1);
 
@@ -2948,7 +3208,7 @@ let _historyFilter = 'all';
 function filterHistory(type) {
   _historyFilter = type;
   // Update button styles
-  ['all','payment','goals','income','expense','tithes','mustang','transfer'].forEach(t => {
+  ['all','payment','goals','income','expense','tithes','spaylater','mustang','transfer'].forEach(t => {
     const btn = document.getElementById('hf_' + t);
     if (!btn) return;
     if (t === type) {
@@ -2968,6 +3228,7 @@ function filterHistory(type) {
     income: '💰 Income',
     expense: '🧾 Expenses',
     tithes: '🙏 Tithes & Offering',
+    spaylater: '🛍️ SPayLater Purchases',
     mustang: '🚛 Mustang Expenses',
     transfer: '💸 Transfers',
   };
@@ -3041,6 +3302,7 @@ function renderHistory() {
     goals: h => ['goalsave','savings'].includes(h.type),
     expense: h => ['expense','other'].includes(h.type) && h.type !== 'tithes' && !((h.description||'').includes('Mustang') || (h.description||'').includes('mustang')),
     tithes: h => h.type === 'tithes' || (h.type === 'other' && h.ref === 'tithes'),
+    spaylater: h => h.type === 'spaylater' || h.type === 'spaylater_bill',
     mustang: h => (h.type === 'expense' && h.ref === 'mustang') ||
                   (h.type === 'debtpay' && h.ref === 'l300') ||
                   (h.type === 'bill' && h.ref === 'b15') ||
@@ -3243,6 +3505,8 @@ function renderBills() {
       toggleBillPaid(this.dataset.id);
     });
   });
+  initSpaylaterForm();
+  renderSpBillProjection();
 }
 
 function makeBillEl(b, cls, daysLeft, isPaid) {
@@ -3304,6 +3568,12 @@ function makeBillEl(b, cls, daysLeft, isPaid) {
 function toggleBillPaid(id) {
   const bill = state.bills.find(b => b.id === id);
   if (!bill) return;
+
+  // Show payment method modal for electric/internet bills (only when marking as paid)
+  if (!bill.paid && SPAY_ELECTRIC_INTERNET_IDS.has(id)) {
+    showSpPayMethodModal(id);
+    return;
+  }
 
   const debtId = BILL_DEBT_MAP[id];
   const isDebtBill = !!debtId;
@@ -3680,6 +3950,7 @@ async function initSync() {
   migrateDebtNames();
   migrateUtilityBillIds();
   migrateSpaylaterBalance();
+  recalcSpBills();
   renderAll();
   // Real-time listener for Emil updates
   if (_firebaseRef) {
