@@ -1304,6 +1304,30 @@ function doPost(e){
   </div>
 </div>
 
+<!-- GOAL OPTIONS MODAL -->
+<div class="modal-overlay" id="goalOptionsModal" style="display:none;">
+  <div class="modal">
+    <div style="text-align:center;font-size:32px;margin-bottom:4px;" id="goalOptionsEmoji">⭐</div>
+    <div class="modal-title" id="goalOptionsName">Goal Options</div>
+    <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:16px;" id="goalOptionsMeta"></div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="goalOptionAction('save')" style="background:linear-gradient(135deg,#d0fdf0,#e8f5ff);border:2px solid var(--mint);border-radius:14px;padding:12px;font-size:13px;font-weight:800;color:#276749;cursor:pointer;font-family:Nunito,sans-serif;text-align:left;">
+        ➕ Add Savings<span style="float:right;opacity:0.6;font-weight:600;font-size:11px;">Lock away funds</span>
+      </button>
+      <button onclick="goalOptionAction('spend')" style="background:linear-gradient(135deg,#fff8e8,#ffeedd);border:2px solid var(--peach);border-radius:14px;padding:12px;font-size:13px;font-weight:800;color:#c07000;cursor:pointer;font-family:Nunito,sans-serif;text-align:left;">
+        💸 Spend from Goal<span style="float:right;opacity:0.6;font-weight:600;font-size:11px;">Log an expense</span>
+      </button>
+      <button onclick="goalOptionAction('edit')" style="background:linear-gradient(135deg,#fff0f5,#f5e6ff);border:2px solid var(--pink-light);border-radius:14px;padding:12px;font-size:13px;font-weight:800;color:var(--pink);cursor:pointer;font-family:Nunito,sans-serif;text-align:left;">
+        ✏️ Edit Goal<span style="float:right;opacity:0.6;font-weight:600;font-size:11px;">Change name or target</span>
+      </button>
+      <button onclick="goalOptionAction('delete')" style="background:linear-gradient(135deg,#fff0f0,#ffe8e8);border:2px solid #ffaaaa;border-radius:14px;padding:12px;font-size:13px;font-weight:800;color:#e53e3e;cursor:pointer;font-family:Nunito,sans-serif;text-align:left;">
+        ✅ Complete / 🗑️ Delete<span style="float:right;opacity:0.6;font-weight:600;font-size:11px;">Finish or remove</span>
+      </button>
+    </div>
+    <span class="modal-close" onclick="document.getElementById('goalOptionsModal').style.display='none'">Cancel</span>
+  </div>
+</div>
+
 <!-- GOAL ACTION MODAL -->
 <div class="modal-overlay" id="goalActionModal" style="display:none;">
   <div class="modal">
@@ -4510,10 +4534,7 @@ function renderGoals() {
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
         <div class="goal-saved">${fmt(g.saved)}</div>
-        <button class="edit-btn" onclick="addToGoal(${idx})" style="margin-top:2px;">+ Save</button>
-        <button class="edit-btn" onclick="openGoalSpend(${idx})" style="color:var(--peach);border-color:#ffd4b8;">💸 Spend</button>
-        <button class="edit-btn" onclick="openGoalEdit('${g.id}')" style="color:var(--pink);border-color:var(--pink-light);">✏️ Edit</button>
-        <button class="edit-btn" onclick="deleteGoal('${g.id}')" style="color:#e53e3e;border-color:#ffc0c0;">🗑️</button>
+        <button onclick="showGoalOptions(${idx})" style="background:var(--pink);border:none;border-radius:99px;color:white;font-size:13px;font-weight:800;padding:5px 12px;cursor:pointer;font-family:Nunito,sans-serif;">•••</button>
       </div>
     `;
     list.appendChild(el);
@@ -4541,6 +4562,31 @@ function renderGoals() {
   }
 
   renderReliefCountdown();
+}
+
+let _optionsGoalIdx = null;
+
+function showGoalOptions(idx) {
+  _optionsGoalIdx = idx;
+  const g = state.goals[idx];
+  if (!g) return;
+  document.getElementById('goalOptionsEmoji').textContent = g.emoji || '⭐';
+  document.getElementById('goalOptionsName').textContent = g.name;
+  document.getElementById('goalOptionsMeta').textContent =
+    fmt(g.saved) + ' saved of ' + fmt(g.target) + ' target · ' + pct(g.saved, g.target) + '%';
+  document.getElementById('goalOptionsModal').style.display = 'flex';
+}
+
+function goalOptionAction(action) {
+  document.getElementById('goalOptionsModal').style.display = 'none';
+  const idx = _optionsGoalIdx;
+  const g = state.goals[idx];
+  if (!g) return;
+  if (action === 'save') addToGoal(idx);
+  else if (action === 'spend') openGoalSpend(idx);
+  else if (action === 'edit') openGoalEdit(g.id);
+  else if (action === 'delete') showGoalActionModal(g.id);
+  _optionsGoalIdx = null;
 }
 
 let _spendGoalIdx = null;
@@ -4825,6 +4871,20 @@ async function initSync() {
         indicator.style.transform = 'translateY(0px)';
         document.getElementById('pullRefreshText').innerHTML = '<span>🔄</span> Syncing...';
       }
+      // Soft reset — clear local arrays so cloud data comes in fresh
+      // Keep user identity and sync URL
+      const keepKeys = ['je_userName', 'je_syncUrl', 'je_app_version'];
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('je_') && !keepKeys.includes(key)) localStorage.removeItem(key);
+      });
+      // Reset in-memory state arrays
+      state.paymentHistory = [];
+      state.incomeLog = [];
+      state.otherExpenses = [];
+      state.spaylaterPurchases = [];
+      state.budgetHistory = [];
+      state.completedGoals = [];
+      // Pull fresh from Firebase
       await pullFromCloud(false);
       recalcSpBills();
       renderAll();
