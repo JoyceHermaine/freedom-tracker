@@ -3658,13 +3658,14 @@ function renderBills() {
   }).sort((a,b) => a.date - b.date);
   const paid = state.bills.filter(b => b.paid && b.amount > 0).sort((a,b) => a.date - b.date);
 
-  // Urgent bills total summary — bills due within 5 days
+  // Urgent bills total summary — bills due within 5 days OR overdue
   const urgentUnpaid = unpaid.filter(b => {
     const _nowU = new Date();
     const _dueThisMonthU = new Date(_nowU.getFullYear(), _nowU.getMonth(), b.date);
     const _dueNextMonthU = new Date(_nowU.getFullYear(), _nowU.getMonth() + 1, b.date);
-    const _dueDateU = _dueThisMonthU >= _nowU ? _dueThisMonthU : _dueNextMonthU;
-    const daysU = Math.ceil((_dueDateU - _nowU) / (1000 * 60 * 60 * 24));
+    const isOverdueU = _dueThisMonthU < _nowU;
+    const _dueDateU = isOverdueU ? _dueThisMonthU : _dueNextMonthU;
+    const daysU = isOverdueU ? 0 : Math.ceil((_dueDateU - _nowU) / (1000 * 60 * 60 * 24));
     return daysU <= 5;
   });
   const urgentTotal = urgentUnpaid.reduce((s, b) => s + b.amount, 0);
@@ -3701,8 +3702,10 @@ function renderBills() {
     const _nowR = new Date();
     const _dueThisMonth = new Date(_nowR.getFullYear(), _nowR.getMonth(), b.date);
     const _dueNextMonth = new Date(_nowR.getFullYear(), _nowR.getMonth() + 1, b.date);
-    const _dueDateR = _dueThisMonth >= _nowR ? _dueThisMonth : _dueNextMonth;
-    const daysLeft2 = Math.ceil((_dueDateR - _nowR) / (1000 * 60 * 60 * 24));
+    // If overdue (due date passed this month) → keep as overdue (0 days), don't roll to next month
+    const isOverdue = _dueThisMonth < _nowR;
+    const _dueDateR = isOverdue ? _dueThisMonth : (_dueThisMonth >= _nowR ? _dueThisMonth : _dueNextMonth);
+    const daysLeft2 = isOverdue ? 0 : Math.ceil((_dueDateR - _nowR) / (1000 * 60 * 60 * 24));
     const cls = daysLeft2 <= 0 ? 'urgent' : daysLeft2 <= 5 ? 'warning' : 'ok';
     const el = makeBillEl(b, cls, daysLeft, false);
     if (daysLeft2 <= 5) urgentEl.appendChild(el.cloneNode(true));
