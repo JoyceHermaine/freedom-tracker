@@ -1146,7 +1146,7 @@ function doPost(e){
       <input type="text" class="modal-input" id="editGoalEmoji" maxlength="2">
     </div>
     <button class="modal-btn" onclick="saveGoalEdit()">💾 Save Changes</button>
-    <button class="modal-btn" onclick="deleteGoal()" style="background:linear-gradient(135deg,#ff6b6b,#ff9a6c); margin-top:8px;">🗑️ Delete Goal</button>
+    <button class="modal-btn" onclick="deleteGoalFromEdit()" style="background:linear-gradient(135deg,#ff6b6b,#ff9a6c); margin-top:8px;">🗑️ Delete Goal</button>
     <span class="modal-close" onclick="document.getElementById('goalEditModal').style.display='none'">Cancel</span>
   </div>
 </div>
@@ -1296,6 +1296,24 @@ function doPost(e){
       </button>
     </div>
     <span class="modal-close" onclick="document.getElementById('spPayMethodModal').style.display='none'">Cancel</span>
+  </div>
+</div>
+
+<!-- SPEND FROM GOAL MODAL -->
+<div class="modal-overlay" id="goalSpendModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">💸 Spend from Goal</div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:12px;" id="goalSpendTitle"></div>
+    <div class="modal-field">
+      <label class="modal-label">Amount Spent (₱)</label>
+      <input type="number" class="modal-input" id="goalSpendAmount" placeholder="e.g. 15000">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Note</label>
+      <input type="text" class="modal-input" id="goalSpendNote" placeholder="e.g. Flights, Vet visit">
+    </div>
+    <button class="modal-btn" onclick="confirmGoalSpend()">💸 Log Spend</button>
+    <span class="modal-close" onclick="document.getElementById('goalSpendModal').style.display='none'">Cancel</span>
   </div>
 </div>
 
@@ -2146,14 +2164,10 @@ function saveGoalEdit() {
   showToast('✅ Goal updated!');
 }
 
-function deleteGoal() {
+function deleteGoalFromEdit() {
   const id = document.getElementById('editGoalId').value;
-  if (!confirm('Delete this goal?')) return;
-  state.goals = state.goals.filter(g => g.id !== id);
   document.getElementById('goalEditModal').style.display = 'none';
-  saveState();
-  renderGoals();
-  showToast('🗑️ Goal deleted!');
+  deleteGoal(id);
 }
 
 // ============================================================
@@ -3631,6 +3645,17 @@ function undoEntry(entryId) {
       renderGoals();
     }
     renderIncome();
+  } else if (entry.type === 'goalspend' && entry.ref) {
+    // Reverse a goal spend — return money to goal and savings
+    const g = state.goals.find(g => g.id === entry.ref);
+    if (g) g.saved = (g.saved || 0) + entry.amount;
+    state.savings = (state.savings || 0) + entry.amount;
+    renderGoals();
+    renderIncome();
+  } else if (entry.type === 'goalreturn') {
+    // Reverse a goal deletion return — re-deduct from savings
+    state.savings = (state.savings || 0) + entry.amount;
+    renderIncome();
   } else if (entry.type === 'debtpay' && entry.ref) {
     const debt = state.debts.find(d => d.id === entry.ref);
     if (debt) debt.balance = Math.min(debt.initial, debt.balance + entry.amount);
@@ -3764,8 +3789,8 @@ function renderHistory() {
       }
       return false;
     },
-    goals: h => ['goalsave','savings'].includes(h.type),
-    expense: h => (['expense','other'].includes(h.type) && h.type !== 'tithes' && !((h.description||'').includes('Mustang') || (h.description||'').includes('mustang'))) || h.type === 'spaylater_food' || h.type === 'spaylater_appa',
+    goals: h => ['goalsave','goalspend','goalreturn','savings'].includes(h.type),
+    expense: h => (['expense','other'].includes(h.type) && h.type !== 'tithes' && !((h.description||'').includes('Mustang') || (h.description||'').includes('mustang'))) || h.type === 'spaylater_food' || h.type === 'spaylater_appa' || h.type === 'goalspend',
     tithes: h => h.type === 'tithes' || (h.type === 'other' && h.ref === 'tithes'),
     spaylater: h => h.type === 'spaylater' || h.type === 'spaylater_bill',
     mustang: h => (h.type === 'expense' && h.ref === 'mustang') ||
@@ -4321,9 +4346,9 @@ function renderReliefCountdown() {
   const now = new Date();
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  // Find debts that will end within 12 months
+  // Find debts ending within 24 months (excludes long-term like BPI, Car, L300)
   const endingSoon = (state.debts || [])
-    .filter(d => d.balance > 0 && d.monthly > 0 && d.id !== 'bpi' && d.id !== 'car' && d.id !== 'l300')
+    .filter(d => d.balance > 0 && d.monthly > 0)
     .map(d => {
       const monthsLeft = Math.ceil(d.balance / d.monthly);
       const endDate = new Date(now.getFullYear(), now.getMonth() + monthsLeft, 1);
@@ -4332,6 +4357,7 @@ function renderReliefCountdown() {
       const pctDone = Math.min(100, Math.round((monthsDone / totalMonths) * 100));
       return { ...d, monthsLeft, endDate, totalMonths, monthsDone, pctDone };
     })
+    .filter(d => d.monthsLeft <= 24)
     .sort((a, b) => a.monthsLeft - b.monthsLeft);
 
   if (!endingSoon.length) {
@@ -4367,27 +4393,91 @@ function renderGoals() {
   list.innerHTML = '';
   state.goals.forEach((g, idx) => {
     const p = pct(g.saved, g.target);
+    const isComplete = g.saved >= g.target;
     const el = document.createElement('div');
     el.className = 'goal-card';
     el.innerHTML = `
       <div class="goal-icon">${g.emoji}</div>
       <div class="goal-info">
-        <div class="goal-name">${g.name}</div>
-        <div class="goal-bar-bg"><div class="goal-bar-fill" style="width:${p}%"></div></div>
+        <div class="goal-name">${g.name}${isComplete ? ' 🎉' : ''}</div>
+        <div class="goal-bar-bg"><div class="goal-bar-fill" style="width:${Math.min(100,p)}%;background:${isComplete?'var(--mint)':'var(--pink)'};"></div></div>
         <div class="goal-meta">${fmt(g.saved)} of ${fmt(g.target)} · ${p}%</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
         <div class="goal-saved">${fmt(g.saved)}</div>
-        <button class="edit-btn" onclick="addToGoal(${idx})" style="margin-top:2px">+ Add</button>
+        <button class="edit-btn" onclick="addToGoal(${idx})" style="margin-top:2px;">+ Save</button>
+        <button class="edit-btn" onclick="openGoalSpend(${idx})" style="color:var(--peach);border-color:#ffd4b8;">💸 Spend</button>
         <button class="edit-btn" onclick="openGoalEdit('${g.id}')" style="color:var(--pink);border-color:var(--pink-light);">✏️ Edit</button>
+        <button class="edit-btn" onclick="deleteGoal('${g.id}')" style="color:#e53e3e;border-color:#ffc0c0;">🗑️</button>
       </div>
     `;
     list.appendChild(el);
   });
+  if (state.goals.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">No goals yet — add one! 🌟</div>';
+  }
   renderReliefCountdown();
 }
 
-let _addToGoalIdx = null;
+let _spendGoalIdx = null;
+function openGoalSpend(idx) {
+  _spendGoalIdx = idx;
+  const g = state.goals[idx];
+  if (!g) return;
+  const titleEl = document.getElementById('goalSpendTitle');
+  if (titleEl) titleEl.textContent = g.emoji + ' ' + g.name + ' — ' + fmt(g.saved) + ' available';
+  document.getElementById('goalSpendAmount').value = '';
+  document.getElementById('goalSpendNote').value = '';
+  document.getElementById('goalSpendModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('goalSpendAmount').focus(), 300);
+}
+
+function confirmGoalSpend() {
+  const val = parseFloat(document.getElementById('goalSpendAmount').value);
+  const note = document.getElementById('goalSpendNote').value.trim();
+  if (isNaN(val) || val <= 0) { showToast('Please enter a valid amount!'); return; }
+  const idx = _spendGoalIdx;
+  if (idx === null || !state.goals[idx]) return;
+  const g = state.goals[idx];
+  if (val > g.saved) { showToast('⚠️ Amount exceeds saved balance of ' + fmt(g.saved) + '!'); return; }
+
+  // Deduct from goal and savings — does NOT affect Available Funds
+  g.saved = Math.max(0, g.saved - val);
+  state.savings = Math.max(0, (state.savings || 0) - val);
+
+  // Log to history — shows in Goals & Savings AND Expenses
+  logExpense(g.emoji, 'Goal spend: ' + g.name + (note ? ' — ' + note : ''), val, 'goalspend', g.id);
+
+  document.getElementById('goalSpendModal').style.display = 'none';
+  saveState();
+  renderGoals();
+  renderIncome();
+  renderHome();
+  showToast(g.emoji + ' ' + fmt(val) + ' spent from ' + g.name + '!');
+}
+
+function deleteGoal(goalId) {
+  const g = state.goals.find(g => g.id === goalId);
+  if (!g) return;
+  const remaining = g.saved || 0;
+  const msg = remaining > 0
+    ? `Delete "${g.name}"?\n\n${fmt(remaining)} remaining savings will be returned to Available Funds.`
+    : `Delete "${g.name}"?`;
+  if (!confirm(msg)) return;
+
+  // Return remaining savings to Available Funds
+  if (remaining > 0) {
+    state.savings = Math.max(0, (state.savings || 0) - remaining);
+    logExpense('↩️', 'Goal deleted: ' + g.name + ' — ' + fmt(remaining) + ' returned', remaining, 'goalreturn', goalId);
+  }
+
+  state.goals = state.goals.filter(g => g.id !== goalId);
+  saveState();
+  renderGoals();
+  renderHome();
+  renderIncome();
+  showToast('🗑️ ' + g.name + ' deleted' + (remaining > 0 ? '. ' + fmt(remaining) + ' returned to Available Funds!' : '!'));
+}
 
 function addToGoal(idx) {
   _addToGoalIdx = idx;
@@ -4400,12 +4490,17 @@ function addToGoal(idx) {
   setTimeout(() => document.getElementById('addToGoalAmount').focus(), 300);
 }
 
+let _savingGoal = false;
 function confirmAddToGoal() {
+  if (_savingGoal) return;
+  _savingGoal = true;
+  setTimeout(() => _savingGoal = false, 2000);
+
   const val = parseFloat(document.getElementById('addToGoalAmount').value);
-  if (isNaN(val) || val <= 0) { showToast('Please enter a valid amount!'); return; }
+  if (isNaN(val) || val <= 0) { showToast('Please enter a valid amount!'); _savingGoal = false; return; }
   const idx = _addToGoalIdx;
   if (idx === null || !state.goals[idx]) return;
-  state.goals[idx].saved = Math.min(state.goals[idx].target, state.goals[idx].saved + val);
+  state.goals[idx].saved += val; // allow over-saving
   logExpense('⭐', 'Saved for: ' + state.goals[idx].name, val, 'goalsave', state.goals[idx].id);
   state.savings = (state.savings || 0) + val;
   document.getElementById('addToGoalModal').style.display = 'none';
@@ -4445,15 +4540,20 @@ function saveDebtUpdate() {
 }
 
 function saveGoal() {
-  const name = document.getElementById('goalNameInput').value;
+  const name = document.getElementById('goalNameInput').value.trim();
   const target = parseFloat(document.getElementById('goalTargetInput').value);
   const saved = parseFloat(document.getElementById('goalSavedInput').value) || 0;
   const emoji = document.getElementById('goalEmojiInput').value || '⭐';
-  if (!name || isNaN(target)) return alert('Please fill in name and target!');
+  if (!name || isNaN(target) || target <= 0) { showToast('Please fill in goal name and target amount!'); return; }
   state.goals.push({ id: Date.now().toString(), name, target, saved, emoji });
+  // Clear form
+  ['goalNameInput','goalTargetInput','goalSavedInput','goalEmojiInput'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
   saveState();
   renderGoals();
   closeModal('goalModal');
+  showToast('🌟 ' + name + ' goal added!');
 }
 
 // ===================== CONFETTI =====================
