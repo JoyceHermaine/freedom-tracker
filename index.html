@@ -1278,6 +1278,20 @@ function doPost(e){
   </div>
 </div>
 
+<!-- SPAYLATER BILL EDIT MODAL -->
+<div class="modal-overlay" id="spBillEditModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">✏️ Edit Bill Amount</div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:12px;" id="spBillEditName"></div>
+    <div class="modal-field">
+      <label class="modal-label">Bill Amount (₱)</label>
+      <input type="number" class="modal-input" id="spBillEditAmount" placeholder="e.g. 18598">
+    </div>
+    <button class="modal-btn" onclick="saveSpBillEdit()">💾 Save</button>
+    <span class="modal-close" onclick="document.getElementById('spBillEditModal').style.display='none'">Cancel</span>
+  </div>
+</div>
+
 <!-- UNDO CONFIRM MODAL -->
 <div class="modal-overlay" id="undoModal" style="display:none;">
   <div class="modal">
@@ -2629,7 +2643,12 @@ function getSpBillMonthKey(bill) {
   // So the bill is due in showFromMonth + 1
   if (bill.showFromMonth !== undefined) {
     const now = new Date();
+    // showFromMonth + 1 = due month. Use Date to handle year rollover correctly.
     const dueMonth = new Date(now.getFullYear(), bill.showFromMonth + 1, 1);
+    // If the due month is in the past, it must be next year
+    if (dueMonth < now && dueMonth.getMonth() !== now.getMonth()) {
+      dueMonth.setFullYear(dueMonth.getFullYear() + 1);
+    }
     return SPAY_MONTHS[dueMonth.getMonth()] + ' ' + dueMonth.getFullYear();
   }
   return null;
@@ -2794,6 +2813,7 @@ function autoMarkBillPaid(itemName, amount) {
   bill.overdueMonth = null;
   bill.paidViaSPayLater = true;
   logExpense('🛍️', 'SPayLater: Paid ' + matched.label, amount, 'spaylater_bill', bill.id);
+  renderBills();
   showToast('✅ ' + matched.label + ' automatically marked as paid! 🌸');
 }
 
@@ -2820,23 +2840,23 @@ function recalcSpBills() {
   // Add installments from all logged purchases
   (state.spaylaterPurchases || []).forEach(p => {
     p.billMonths.forEach(mKey => {
-      // Ensure bill entry exists for this month/account
-      const bill = ensureSpBillExists(mKey, p.account) ||
-        state.bills.find(b => b.account === p.account && getSpBillMonthKey(b) === mKey) ||
-        state.bills.find(b => (b.id === 'b1' || b.id === 'b2') && b.account === undefined &&
-          p.account === (b.id === 'b1' ? 'emil' : 'joyce') &&
-          getSpBillMonthKey(b) === mKey);
-
-      // Also check b1/b2 directly for current month
-      const currentBillId = p.account === 'emil' ? 'b1' : 'b2';
-      const currentBill = state.bills.find(b => b.id === currentBillId);
       const now = new Date();
       const currentMonthKey = SPAY_MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+      const currentBillId = p.account === 'emil' ? 'b1' : 'b2';
 
-      if (mKey === currentMonthKey && currentBill && !currentBill.paid) {
-        currentBill.amount = Math.round((currentBill.amount + p.installment) * 100) / 100;
-      } else if (bill && !bill.paid) {
-        bill.amount = Math.round((bill.amount + p.installment) * 100) / 100;
+      // For current month — use b1/b2 directly
+      if (mKey === currentMonthKey) {
+        const currentBill = state.bills.find(b => b.id === currentBillId);
+        if (currentBill && !currentBill.paid) {
+          currentBill.amount = Math.round((currentBill.amount + p.installment) * 100) / 100;
+        }
+      } else {
+        // For future months — find or create bill entry
+        const bill = ensureSpBillExists(mKey, p.account) ||
+          state.bills.find(b => b.account === p.account && getSpBillMonthKey(b) === mKey);
+        if (bill && !bill.paid) {
+          bill.amount = Math.round((bill.amount + p.installment) * 100) / 100;
+        }
       }
     });
   });
@@ -2896,20 +2916,32 @@ function renderSpBillProjection() {
     }).join('')}`;
 }
 
+let _editingSpBillId = null;
 function editSpBillAmount(billId) {
   const bill = state.bills?.find(b=>b.id===billId);
   if (!bill) return;
-  const newAmt = prompt('Edit bill amount for '+bill.name+':', bill.amount);
-  if (newAmt===null) return;
-  const val = parseFloat(newAmt);
-  if (isNaN(val)||val<0) { showToast('Invalid amount!'); return; }
-  // Update seed so recalc keeps this as base
-  SPAY_SEED[billId] = val;
+  _editingSpBillId = billId;
+  const nameEl = document.getElementById('spBillEditName');
+  const amtEl = document.getElementById('spBillEditAmount');
+  if (nameEl) nameEl.textContent = bill.name + ' — current: ' + fmt(bill.amount);
+  if (amtEl) amtEl.value = bill.amount;
+  document.getElementById('spBillEditModal').style.display = 'flex';
+  setTimeout(() => amtEl?.focus(), 300);
+}
+
+function saveSpBillEdit() {
+  const val = parseFloat(document.getElementById('spBillEditAmount').value);
+  if (isNaN(val) || val < 0) { showToast('Please enter a valid amount!'); return; }
+  const bill = state.bills?.find(b => b.id === _editingSpBillId);
+  if (!bill) return;
+  SPAY_SEED[_editingSpBillId] = val;
   bill.amount = val;
+  document.getElementById('spBillEditModal').style.display = 'none';
   saveState();
   renderSpBillProjection();
   renderBills();
   showToast('✅ Bill amount updated!');
+  _editingSpBillId = null;
 }
 
 function showSpPayMethodModal(billId) {
@@ -2968,7 +3000,9 @@ function initSpaylaterForm() {
   const d = document.getElementById('spDate');
   if (d&&!d.value) d.value = new Date().toISOString().split('T')[0];
   setSpType('digital');
-  setSPayTab('emil');
+  // Default to current user's account
+  const currentUser = getUserName().toLowerCase();
+  setSPayTab(currentUser === 'emil' ? 'emil' : 'joyce');
 }
 
 const fmt = n => '₱' + Math.round(n).toLocaleString('en-PH');
