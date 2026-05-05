@@ -1985,8 +1985,16 @@ function renderOtherExpenses() {
   const totalEl = document.getElementById('otherExpensesTotal');
   if (!el) return;
   const expenses = state.otherExpenses || [];
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
-  if (totalEl) totalEl.textContent = fmt(total);
+  // Current month total only
+  const now = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const curMonth = months[now.getMonth()];
+  const curYear = now.getFullYear().toString();
+  const thisMonthExpenses = expenses.filter(e =>
+    (e.date || '').includes(curMonth) && (e.date || '').includes(curYear)
+  );
+  const total = thisMonthExpenses.reduce((s, e) => s + e.amount, 0);
+  if (totalEl) totalEl.textContent = fmt(total) + ' this month';
 
   if (expenses.length === 0) {
     el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:10px 0;">No other expenses yet 🌸</div>';
@@ -2472,7 +2480,7 @@ function buildMonthlyData() {
     if (!key) return;
     if (!monthlySpend[key]) monthlySpend[key] = { total:0, payments:0, expenses:0, tithes:0 };
     const amt = h.amount||0;
-    if (h.type==='income'||h.type==='transfer') return;
+    if (h.type==='income'||h.type==='transfer'||h.type==='spaylater'||h.type==='spaylater_bill') return;
     if (h.type==='tithes') { monthlySpend[key].tithes+=amt; monthlySpend[key].total+=amt; return; }
     if (['bill','debtpay'].includes(h.type)) { monthlySpend[key].payments+=amt; monthlySpend[key].total+=amt; return; }
     monthlySpend[key].expenses+=amt; monthlySpend[key].total+=amt;
@@ -3300,6 +3308,50 @@ function renderHome() {
   }
   renderMilestones();
   renderMonthlyTracker();
+
+  // Smart Freedom In calculation
+  try {
+    const freedomEl = document.getElementById('freedomIn');
+    if (freedomEl) {
+      const activeDebts = (state.debts || [])
+        .filter(d => d.balance > 0 && d.monthly > 0)
+        .map(d => ({ balance: d.balance, monthly: d.monthly, id: d.id }));
+
+      if (activeDebts.length === 0) {
+        freedomEl.textContent = '🎉 Free!';
+      } else {
+        let simDebts = activeDebts.map(d => ({ ...d }));
+        let month = 0;
+        const MAX_MONTHS = 120;
+
+        while (simDebts.length > 0 && month < MAX_MONTHS) {
+          month++;
+          simDebts = simDebts
+            .map(d => ({ ...d, balance: Math.max(0, d.balance - d.monthly) }))
+            .filter(d => d.balance > 0);
+        }
+
+        if (simDebts.length === 0 && month < MAX_MONTHS) {
+          const now = new Date();
+          const freedomDate = new Date(now.getFullYear(), now.getMonth() + month, 1);
+          const yrs = Math.floor(month / 12);
+          const mos = month % 12;
+          let label = '';
+          if (yrs > 0 && mos > 0) label = '~' + yrs + 'y ' + mos + 'm';
+          else if (yrs > 0) label = '~' + yrs + ' yrs';
+          else label = '~' + mos + ' mos';
+          freedomEl.textContent = label;
+          const subEl = freedomEl.nextElementSibling;
+          if (subEl) subEl.textContent = freedomDate.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+        } else {
+          freedomEl.textContent = '>10 yrs';
+        }
+      }
+    }
+  } catch(e) {
+    // Fail silently — never break renderHome
+    console.warn('Freedom calc error:', e);
+  }
 }
 
 // ===================== DEBTS =====================
