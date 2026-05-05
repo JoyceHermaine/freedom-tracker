@@ -898,6 +898,13 @@ function doPost(e){
   </div>
 
   <div class="card">
+    <div class="card-title">🎯 Debt Payoff Progress</div>
+    <div class="chart-wrap">
+      <canvas id="debtProgressChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-title">📉 Monthly Obligations</div>
     <div class="chart-wrap">
       <canvas id="barChart"></canvas>
@@ -908,6 +915,20 @@ function doPost(e){
     <div class="card-title">💚 Income vs Obligations</div>
     <div class="chart-wrap">
       <canvas id="incomeChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📈 Income vs Spending (Last 6 Months)</div>
+    <div class="chart-wrap">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💸 This Month's Spending Breakdown</div>
+    <div class="chart-wrap" style="max-height:280px;">
+      <canvas id="spendingPieChart" style="max-height:280px;"></canvas>
     </div>
   </div>
 
@@ -1649,20 +1670,19 @@ function checkMonthlyReset() {
   if (state.lastBudgetMonth === currentMonthKey) return; // Already reset this month
 
   // Archive last month if we have data
-  if (state.lastBudgetMonth && (state.foodSpent > 0 || state.appaSpent > 0 || state.mustangSpent > 0)) {
+  if (state.lastBudgetMonth && (state.foodSpent > 0 || state.appaSpent > 0 || state.mustangSpent > 0 ||
+      getMonthSpent('food') > 0 || getMonthSpent('appa') > 0 || getMonthSpent('mustang') > 0)) {
     if (!state.budgetHistory) state.budgetHistory = [];
-    // Don't duplicate — remove existing entry for same month if any
     state.budgetHistory = state.budgetHistory.filter(h => h.month !== state.lastBudgetMonth);
     state.budgetHistory.unshift({
       month: state.lastBudgetMonth,
-      food: state.foodSpent,
+      food: getMonthSpent('food'),
       foodBudget: state.foodBudget,
-      appa: state.appaSpent,
+      appa: getMonthSpent('appa'),
       appaBudget: state.appaBudget,
-      mustang: state.mustangSpent,
+      mustang: getMonthSpent('mustang'),
       mustangBudget: state.mustangBudget,
     });
-    // Keep last 12 months
     if (state.budgetHistory.length > 12) state.budgetHistory = state.budgetHistory.slice(0, 12);
   }
 
@@ -2573,6 +2593,10 @@ function renderAll() {
   renderIncome();
   renderOtherExpenses();
   renderMilestones();
+  // Only render charts if Charts tab is currently visible
+  if (document.getElementById('page-charts')?.classList.contains('active')) {
+    renderCharts();
+  }
 }
 
 // ===================== BUDGET EDIT =====================
@@ -4070,105 +4094,172 @@ function toggleBillPaid(id) {
 // ===================== CHARTS =====================
 let charts = {};
 function renderCharts() {
-  // Donut
+  // ── 1. DONUT: Debt Breakdown ──────────────────────────────
   if (charts.donut) charts.donut.destroy();
   const ctx1 = document.getElementById('donutChart').getContext('2d');
+  const activeDebts = state.debts.filter(d => d.balance > 0);
   charts.donut = new Chart(ctx1, {
     type: 'doughnut',
     data: {
-      labels: state.debts.map(d => d.name),
+      labels: activeDebts.map(d => d.name),
       datasets: [{
-        data: state.debts.map(d => d.balance),
-        backgroundColor: state.debts.map(d => d.color),
-        borderWidth: 3,
-        borderColor: '#fff',
-        hoverOffset: 8,
+        data: activeDebts.map(d => d.balance),
+        backgroundColor: activeDebts.map(d => d.color),
+        borderWidth: 3, borderColor: '#fff', hoverOffset: 8,
       }]
     },
     options: {
-      cutout: '60%',
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 1.4,
+      cutout: '60%', responsive: true, maintainAspectRatio: true, aspectRatio: 1.4,
       plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            font: { family: 'Nunito', weight: '700', size: 11 },
-            padding: 8,
-            boxWidth: 10,
-            generateLabels: (chart) => {
-              const data = chart.data;
-              return data.labels.map((label, i) => ({
-                text: label.length > 18 ? label.substring(0, 16) + '…' : label,
-                fillStyle: data.datasets[0].backgroundColor[i],
-                strokeStyle: '#fff',
-                lineWidth: 2,
-                index: i,
-              }));
-            }
-          }
-        },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.parsed)}` } }
+        legend: { position:'bottom', labels:{ font:{family:'Nunito',weight:'700',size:11}, padding:8, boxWidth:10,
+          generateLabels: chart => chart.data.labels.map((label,i) => ({
+            text: label.length>18 ? label.substring(0,16)+'…' : label,
+            fillStyle: chart.data.datasets[0].backgroundColor[i],
+            strokeStyle:'#fff', lineWidth:2, index:i,
+          }))
+        }},
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fmt(ctx.parsed)}` }}
       }
     }
   });
 
-  // Bar - monthly obligations
+  // ── 2. DEBT PROGRESS BAR CHART ───────────────────────────
+  if (charts.debtProgress) charts.debtProgress.destroy();
+  const ctx5 = document.getElementById('debtProgressChart')?.getContext('2d');
+  if (ctx5) {
+    const dpDebts = state.debts.filter(d => d.initial > 0);
+    const dpPcts = dpDebts.map(d => parseFloat(pct(d.initial - d.balance, d.initial)));
+    charts.debtProgress = new Chart(ctx5, {
+      type: 'bar',
+      data: {
+        labels: dpDebts.map(d => d.emoji + ' ' + (d.name.length > 14 ? d.name.substring(0,12)+'…' : d.name)),
+        datasets: [{
+          label: '% Paid Off',
+          data: dpPcts,
+          backgroundColor: dpDebts.map(d => d.color + 'cc'),
+          borderRadius: 8, borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true, aspectRatio: 1.6,
+        plugins: { legend:{display:false}, tooltip:{callbacks:{label: ctx => ` ${ctx.parsed.y.toFixed(1)}% paid off`}} },
+        scales: {
+          y: { min:0, max:100, ticks:{callback: v => v+'%', font:{family:'Nunito',weight:'700',size:10}}, grid:{color:'#f0e6f5'}},
+          x: { ticks:{font:{family:'Nunito',weight:'700',size:9}, maxRotation:30}, grid:{display:false}}
+        }
+      }
+    });
+  }
+
+  // ── 3. BAR: Monthly Obligations (dynamic) ────────────────
   if (charts.bar) charts.bar.destroy();
   const ctx2 = document.getElementById('barChart').getContext('2d');
-  const categories = ['Fixed Loans/CC', 'Utilities', 'SLoans', 'SPayLater', 'Living'];
-  const amounts = [60801, 9750, 39713, 40320, 38000];
+  // Group debts by category
+  const obligationMap = {
+    'Fixed Loans/CC': ['bpi','secbank','car'],
+    'SLoans': ['sloan'],
+    'MariBank': ['maribank'],
+    'SPayLater': ['spaylater'],
+    'L300': ['l300'],
+  };
+  const obCategories = Object.keys(obligationMap);
+  const obAmounts = obCategories.map(cat => {
+    return obligationMap[cat].reduce((s, id) => {
+      const d = state.debts.find(d => d.id === id);
+      return s + (d && d.balance > 0 ? d.monthly : 0);
+    }, 0);
+  }).filter((amt, i) => amt > 0 || obAmounts?.[i] > 0); // only show non-zero
+  const obColors = ['#ff6b9d','#e53e3e','#118ab2','#06d6a0','#ffd166'];
+  // Filter to non-zero
+  const filteredCats = obCategories.filter((_, i) => {
+    const amt = obligationMap[obCategories[i]].reduce((s, id) => {
+      const d = state.debts.find(d => d.id === id);
+      return s + (d && d.balance > 0 ? d.monthly : 0);
+    }, 0);
+    return amt > 0;
+  });
+  const filteredAmts = filteredCats.map(cat =>
+    obligationMap[cat].reduce((s, id) => {
+      const d = state.debts.find(d => d.id === id);
+      return s + (d && d.balance > 0 ? d.monthly : 0);
+    }, 0)
+  );
+  const filteredColors = filteredCats.map(cat => obColors[obCategories.indexOf(cat)]);
   charts.bar = new Chart(ctx2, {
-    type: 'bar',
-    data: {
-      labels: categories,
-      datasets: [{
-        label: 'Monthly (₱)',
-        data: amounts,
-        backgroundColor: ['#ff6b9d','#ffd166','#e53e3e','#06d6a0','#c77dff'],
-        borderRadius: 10,
-        borderSkipped: false,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 1.8,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.parsed.y)}` } } },
-      scales: {
-        y: { ticks: { callback: v => '₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10} }, grid: { color: '#f0e6f5' } },
-        x: { ticks: { font: { family: 'Nunito', weight: '700', size: 9 }, maxRotation: 30 }, grid: { display: false } }
+    type:'bar',
+    data:{ labels:filteredCats, datasets:[{ label:'Monthly (₱)', data:filteredAmts, backgroundColor:filteredColors, borderRadius:10, borderSkipped:false }]},
+    options:{
+      responsive:true, maintainAspectRatio:true, aspectRatio:1.8,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label: ctx => ` ${fmt(ctx.parsed.y)}`}}},
+      scales:{
+        y:{ticks:{callback: v=>'₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10}}, grid:{color:'#f0e6f5'}},
+        x:{ticks:{font:{family:'Nunito',weight:'700',size:9}, maxRotation:30}, grid:{display:false}}
       }
     }
   });
 
-  // Income vs obligations
+  // ── 4. INCOME VS OBLIGATIONS (dynamic) ───────────────────
   if (charts.income) charts.income.destroy();
   const ctx3 = document.getElementById('incomeChart').getContext('2d');
+  const totalObligation = (state.debts||[]).reduce((s,d) => s + (d.balance>0 ? d.monthly : 0), 0);
+  const totalIncome = [...(state.incomeLog||[])].reduce((s,e) => s+(e.amount||0), 0);
   charts.income = new Chart(ctx3, {
-    type: 'bar',
-    data: {
-      labels: ['Income', 'Obligations'],
-      datasets: [{
-        data: [145595, 188584],
-        backgroundColor: ['#06d6a0', '#ff6b9d'],
-        borderRadius: 14,
-        borderSkipped: false,
-      }]
+    type:'bar',
+    data:{
+      labels:['Total Income', 'Monthly Obligations'],
+      datasets:[{ data:[totalIncome, totalObligation], backgroundColor:['#06d6a0','#ff6b9d'], borderRadius:14, borderSkipped:false }]
     },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 2.5,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.parsed.x)}` } } },
-      scales: {
-        x: { ticks: { callback: v => '₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10} }, grid: { color: '#f0e6f5' } },
-        y: { ticks: { font: { family: 'Nunito', weight: '700', size: 11 } }, grid: { display: false } }
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true, aspectRatio:2.5,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label: ctx => ` ${fmt(ctx.parsed.x)}`}}},
+      scales:{
+        x:{ticks:{callback: v=>'₱'+Math.round(v/1000)+'k', font:{family:'Nunito',weight:'700',size:10}}, grid:{color:'#f0e6f5'}},
+        y:{ticks:{font:{family:'Nunito',weight:'700',size:11}}, grid:{display:false}}
       }
     }
   });
+
+  // ── 5. MONTHLY INCOME VS SPENDING (last 6 months) ────────
+  renderMonthlyChart();
+
+  // ── 6. SPENDING PIE CHART (this month) ───────────────────
+  if (charts.spendingPie) charts.spendingPie.destroy();
+  const ctx6 = document.getElementById('spendingPieChart')?.getContext('2d');
+  if (ctx6) {
+    const now = new Date();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const curMonth = months[now.getMonth()];
+    const curYear = now.getFullYear().toString();
+    const thisMonthHistory = (state.paymentHistory||[]).filter(h =>
+      (h.date||'').includes(curMonth) && (h.date||'').includes(curYear)
+    );
+    const billsPaid = thisMonthHistory.filter(h => h.type==='bill'||h.type==='debtpay').reduce((s,h) => s+h.amount, 0);
+    const foodSpent = getMonthSpent('food');
+    const appaSpent = getMonthSpent('appa');
+    const mustangSpent = getMonthSpent('mustang');
+    const tithesSpent = thisMonthHistory.filter(h => h.type==='tithes').reduce((s,h) => s+h.amount, 0);
+    const otherSpent = thisMonthHistory.filter(h => h.type==='other'&&h.type!=='tithes').reduce((s,h) => s+h.amount, 0);
+    const spendLabels = ['💸 Bills & Debt','🍱 Food','🚗 Appa Gas','🚛 Mustang','🙏 Tithes','🧾 Other'];
+    const spendData = [billsPaid, foodSpent, appaSpent, mustangSpent, tithesSpent, otherSpent];
+    const spendColors = ['#ff6b9d','#06d6a0','#ff9a6c','#ffd166','#c77dff','#9b8faa'];
+    // Filter zero values
+    const nonZeroIdx = spendData.map((v,i) => v>0 ? i : -1).filter(i => i>=0);
+    charts.spendingPie = new Chart(ctx6, {
+      type:'doughnut',
+      data:{
+        labels: nonZeroIdx.map(i => spendLabels[i]),
+        datasets:[{ data: nonZeroIdx.map(i => spendData[i]), backgroundColor: nonZeroIdx.map(i => spendColors[i]), borderWidth:3, borderColor:'#fff', hoverOffset:6 }]
+      },
+      options:{
+        cutout:'50%', responsive:true, maintainAspectRatio:true, aspectRatio:1.6,
+        plugins:{
+          legend:{position:'bottom', labels:{font:{family:'Nunito',weight:'700',size:10}, padding:8, boxWidth:10}},
+          tooltip:{callbacks:{label: ctx => ` ${ctx.label}: ${fmt(ctx.parsed)} (${((ctx.parsed/nonZeroIdx.map(i=>spendData[i]).reduce((a,b)=>a+b,0))*100).toFixed(0)}%)`}}
+        }
+      }
+    });
+  }
+
   renderBudgetHistory();
 }
 
