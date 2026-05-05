@@ -2774,6 +2774,7 @@ function addSpaylaterPurchase(itemName, amount, dateStr, type, account, skipForm
   logExpense('🛍️', 'SPayLater ('+(acc==='emil'?'Emil':'Joyce')+'): '+name, amt, 'spaylater', purchase.id);
   recalcSpBills();
   autoMarkBillPaid(name, amt);
+  autoTagSpaylaterBudget(name, amt);
 
   if (!skipForm) {
     if (document.getElementById('spItemName')) document.getElementById('spItemName').value='';
@@ -2815,6 +2816,23 @@ function autoMarkBillPaid(itemName, amount) {
   logExpense('🛍️', 'SPayLater: Paid ' + matched.label, amount, 'spaylater_bill', bill.id);
   renderBills();
   showToast('✅ ' + matched.label + ' automatically marked as paid! 🌸');
+}
+
+function autoTagSpaylaterBudget(itemName, amount) {
+  if (!itemName || !amount) return;
+  const n = itemName.toLowerCase();
+  const foodKeywords = ['food', 'grocery', 'groceries', 'supermarket'];
+  const appaKeywords = ['gas', 'petrol', 'gasoline', 'fuel'];
+
+  if (foodKeywords.some(k => n.includes(k))) {
+    logExpense('🍱', 'SPayLater Food: ' + itemName, amount, 'spaylater_food', null);
+    renderFood();
+    showToast('🍱 Also counted toward Food budget! 🌸');
+  } else if (appaKeywords.some(k => n.includes(k))) {
+    logExpense('⛽', 'SPayLater Gas: ' + itemName, amount, 'spaylater_appa', null);
+    renderAppa();
+    showToast('⛽ Also counted toward Appa Gas budget! 🌸');
+  }
 }
 
 function recalcSpBills() {
@@ -3084,8 +3102,15 @@ function getMonthSpent(ref) {
   const curMonth = months[now.getMonth()];
   const curYear = now.getFullYear().toString();
   return (state.paymentHistory || [])
-    .filter(h => h.type === 'expense' && h.ref === ref &&
-      (h.date || '').includes(curMonth) && (h.date || '').includes(curYear))
+    .filter(h => {
+      if (!(h.date || '').includes(curMonth) || !(h.date || '').includes(curYear)) return false;
+      // Regular expense
+      if (h.type === 'expense' && h.ref === ref) return true;
+      // SPayLater food/appa purchases
+      if (ref === 'food' && h.type === 'spaylater_food') return true;
+      if (ref === 'appa' && h.type === 'spaylater_appa') return true;
+      return false;
+    })
     .reduce((s, h) => s + (h.amount || 0), 0);
 }
 
@@ -3592,6 +3617,8 @@ function undoEntry(entryId) {
       state.spaylaterPurchases = state.spaylaterPurchases.filter(p => p.id !== entry.ref);
     }
     recalcSpBills();
+  } else if (entry.type === 'spaylater_food' || entry.type === 'spaylater_appa') {
+    // These are budget-tracking only entries — just remove from history, renderAll handles the rest
   }
 
   // Remove entry from history
@@ -3714,7 +3741,7 @@ function renderHistory() {
       return false;
     },
     goals: h => ['goalsave','savings'].includes(h.type),
-    expense: h => ['expense','other'].includes(h.type) && h.type !== 'tithes' && !((h.description||'').includes('Mustang') || (h.description||'').includes('mustang')),
+    expense: h => (['expense','other'].includes(h.type) && h.type !== 'tithes' && !((h.description||'').includes('Mustang') || (h.description||'').includes('mustang'))) || h.type === 'spaylater_food' || h.type === 'spaylater_appa',
     tithes: h => h.type === 'tithes' || (h.type === 'other' && h.ref === 'tithes'),
     spaylater: h => h.type === 'spaylater' || h.type === 'spaylater_bill',
     mustang: h => (h.type === 'expense' && h.ref === 'mustang') ||
