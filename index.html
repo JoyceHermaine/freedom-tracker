@@ -930,43 +930,8 @@ function doPost(e){
   </div>
 
   <div class="card">
-    <div class="card-title">🌈 3-Month Relief Countdown</div>
-    <div class="prog-item">
-      <div class="prog-header">
-        <span class="prog-name">SLoans ending</span>
-        <span class="prog-vals">Jul 2026</span>
-      </div>
-      <div class="prog-track">
-        <div class="prog-fill" style="width:33%; background: linear-gradient(90deg, var(--pink), var(--peach));"></div>
-      </div>
-      <div class="prog-pct">Month 1 of 3 — ₱28,828/mo freed when done! 🎉</div>
-    </div>
-    <div class="prog-item">
-      <div class="prog-header">
-        <span class="prog-name">MariBank Loans ending</span>
-        <span class="prog-vals">Jun–Jul 2026</span>
-      </div>
-      <div class="prog-track">
-        <div class="prog-fill" style="width:33%; background: linear-gradient(90deg, var(--lavender), var(--blue));"></div>
-      </div>
-      <div class="prog-pct">Month 1 of 3 — ₱10,885/mo freed when done! 🎉</div>
-    </div>
-    <div class="prog-item">
-      <div class="prog-header">
-        <span class="prog-name">SPayLater stabilizing</span>
-        <span class="prog-vals">Aug 2026</span>
-      </div>
-      <div class="prog-track">
-        <div class="prog-fill" style="width:20%; background: linear-gradient(90deg, var(--mint), var(--blue));"></div>
-      </div>
-      <div class="prog-pct">If no new purchases — bills drop to ~₱2k/mo 🌸</div>
-    </div>
-
-    <div style="background: linear-gradient(135deg,#d0fdf0,#b0f5e2); border-radius:14px; padding:14px; margin-top:8px; text-align:center;">
-      <div style="font-size:22px; margin-bottom:4px;">🎊</div>
-      <div style="font-family:'Righteous',cursive; font-size:16px; color:#276749;">By August 2026</div>
-      <div style="font-size:13px; color:#276749; font-weight:700; margin-top:4px;">~₱39,713/month freed up 💚<br>That's when life starts feeling different!</div>
-    </div>
+    <div class="card-title">🌈 Debt Relief Countdown</div>
+    <div id="reliefCountdown"></div>
   </div>
 </div>
 
@@ -3362,6 +3327,10 @@ function renderDebts() {
   progList.innerHTML = '';
 
   state.debts.forEach(d => {
+    // For revolving debts (SPayLater), update initial if balance exceeds it
+    if (d.id === 'spaylater' && d.balance > d.initial) {
+      d.initial = d.balance;
+    }
     const paid = d.initial - d.balance;
     const p = pct(paid, d.initial);
 
@@ -3420,7 +3389,11 @@ function renderDebts() {
 }
 
 // ===================== LOG PAYMENT =====================
+let _savingPayment = false;
 function logPayment(debtId) {
+  if (_savingPayment) return;
+  _savingPayment = true;
+  setTimeout(() => _savingPayment = false, 2000);
   const input = document.getElementById('pay_' + debtId);
   const amount = parseFloat(input.value);
   if (isNaN(amount) || amount <= 0) {
@@ -4187,6 +4160,53 @@ function renderBudgetHistory() {
 }
 
 // ===================== GOALS =====================
+function renderReliefCountdown() {
+  const el = document.getElementById('reliefCountdown');
+  if (!el) return;
+  const now = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Find debts that will end within 12 months
+  const endingSoon = (state.debts || [])
+    .filter(d => d.balance > 0 && d.monthly > 0 && d.id !== 'bpi' && d.id !== 'car' && d.id !== 'l300')
+    .map(d => {
+      const monthsLeft = Math.ceil(d.balance / d.monthly);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + monthsLeft, 1);
+      const totalMonths = Math.ceil(d.initial / d.monthly);
+      const monthsDone = totalMonths - monthsLeft;
+      const pctDone = Math.min(100, Math.round((monthsDone / totalMonths) * 100));
+      return { ...d, monthsLeft, endDate, totalMonths, monthsDone, pctDone };
+    })
+    .sort((a, b) => a.monthsLeft - b.monthsLeft);
+
+  if (!endingSoon.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--mint);font-weight:800;padding:16px;">🎊 All near-term debts paid off!</div>';
+    return;
+  }
+
+  const totalFreed = endingSoon.reduce((s, d) => s + d.monthly, 0);
+  const latestEnd = endingSoon[endingSoon.length - 1].endDate;
+  const colors = ['var(--pink),var(--peach)', 'var(--lavender),var(--blue)', 'var(--mint),var(--blue)', 'var(--peach),var(--pink)'];
+
+  el.innerHTML = endingSoon.map((d, i) => `
+    <div class="prog-item">
+      <div class="prog-header">
+        <span class="prog-name">${d.emoji} ${d.name}</span>
+        <span class="prog-vals">${months[d.endDate.getMonth()]} ${d.endDate.getFullYear()}</span>
+      </div>
+      <div class="prog-track">
+        <div class="prog-fill" style="width:${d.pctDone}%; background:linear-gradient(90deg,${colors[i % colors.length]});"></div>
+      </div>
+      <div class="prog-pct">${d.monthsLeft} month${d.monthsLeft !== 1 ? 's' : ''} left — ${fmt(d.monthly)}/mo freed when done! 🎉</div>
+    </div>
+  `).join('') + `
+    <div style="background:linear-gradient(135deg,#d0fdf0,#b0f5e2);border-radius:14px;padding:14px;margin-top:8px;text-align:center;">
+      <div style="font-size:22px;margin-bottom:4px;">🎊</div>
+      <div style="font-family:'Righteous',cursive;font-size:16px;color:#276749;">By ${months[latestEnd.getMonth()]} ${latestEnd.getFullYear()}</div>
+      <div style="font-size:13px;color:#276749;font-weight:700;margin-top:4px;">~${fmt(totalFreed)}/month freed up 💚<br>That's when life starts feeling different!</div>
+    </div>`;
+}
+
 function renderGoals() {
   const list = document.getElementById('goalsList');
   list.innerHTML = '';
@@ -4209,6 +4229,7 @@ function renderGoals() {
     `;
     list.appendChild(el);
   });
+  renderReliefCountdown();
 }
 
 let _addToGoalIdx = null;
@@ -4244,9 +4265,9 @@ function confirmAddToGoal() {
 }
 
 // ===================== MODALS =====================
-function openEditModal() { document.getElementById('editModal').classList.add('open'); }
-function openGoalModal() { document.getElementById('goalModal').classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openEditModal() { document.getElementById('editModal').style.display='flex'; }
+function openGoalModal() { document.getElementById('goalModal').style.display='flex'; }
+function closeModal(id) { document.getElementById(id).style.display='none'; }
 
 function saveDebtUpdate() {
   const id = document.getElementById('editDebtSelect').value;
@@ -4256,12 +4277,15 @@ function saveDebtUpdate() {
   const debt = state.debts.find(d => d.id === id);
   if (debt) {
     debt.balance = newBal;
-    state.totalPaid += paid;
+    if (paid > 0) {
+      state.totalPaid += paid;
+      logExpense(debt.emoji, 'Debt update: ' + debt.name, paid, 'debtpay', debt.id);
+      confetti();
+    }
     saveState();
     renderHome();
     renderDebts();
     closeModal('editModal');
-    if (paid > 0) confetti();
   }
 }
 
