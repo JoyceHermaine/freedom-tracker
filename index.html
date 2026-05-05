@@ -950,6 +950,11 @@ function doPost(e){
     <button class="add-btn" onclick="openGoalModal()">🌟 Add a Goal</button>
   </div>
 
+  <div class="card" id="completedGoalsCard" style="display:none;">
+    <div class="card-title">✅ Completed Goals</div>
+    <div id="completedGoalsList"></div>
+  </div>
+
   <div class="card">
     <div class="card-title">🌈 Debt Relief Countdown</div>
     <div id="reliefCountdown"></div>
@@ -1299,6 +1304,24 @@ function doPost(e){
   </div>
 </div>
 
+<!-- GOAL ACTION MODAL -->
+<div class="modal-overlay" id="goalActionModal" style="display:none;">
+  <div class="modal">
+    <div style="text-align:center;font-size:32px;margin-bottom:8px;" id="goalActionEmoji">⭐</div>
+    <div class="modal-title" id="goalActionTitle">What would you like to do?</div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:20px;" id="goalActionSub"></div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="confirmGoalComplete()" style="background:linear-gradient(135deg,#d0fdf0,#b0f5e8);border:2px solid #06d6a0;border-radius:14px;padding:14px;font-size:14px;font-weight:800;color:#276749;cursor:pointer;font-family:Nunito,sans-serif;">
+        ✅ Mark as Completed<br><span style="font-size:11px;font-weight:600;color:#276749;opacity:0.8;">Goal achieved! Kept for memory 🌸</span>
+      </button>
+      <button onclick="confirmGoalDelete()" style="background:linear-gradient(135deg,#fff0f0,#ffe0e0);border:2px solid #ff6b6b;border-radius:14px;padding:14px;font-size:14px;font-weight:800;color:#e53e3e;cursor:pointer;font-family:Nunito,sans-serif;">
+        🗑️ Delete Permanently<br><span style="font-size:11px;font-weight:600;color:#e53e3e;opacity:0.8;">Goal cancelled — removed forever</span>
+      </button>
+    </div>
+    <span class="modal-close" onclick="document.getElementById('goalActionModal').style.display='none'">Cancel</span>
+  </div>
+</div>
+
 <!-- SPEND FROM GOAL MODAL -->
 <div class="modal-overlay" id="goalSpendModal" style="display:none;">
   <div class="modal">
@@ -1461,6 +1484,7 @@ let state = {
   lastBudgetMonth: localStorage.getItem('je_lastBudgetMonth') || '',
   lastBillMonth: localStorage.getItem('je_lastBillMonth') || '',
   spaylaterPurchases: JSON.parse(localStorage.getItem('je_spaylaterPurchases') || '[]'),
+  completedGoals: JSON.parse(localStorage.getItem('je_completedGoals') || '[]'),
 };
 
 // ===================== FIREBASE SYNC =====================
@@ -1555,6 +1579,7 @@ function getDataToSave() {
     lastBudgetMonth: state.lastBudgetMonth || '',
     lastBillMonth: state.lastBillMonth || '',
     spaylaterPurchases: state.spaylaterPurchases || [],
+    completedGoals: state.completedGoals || [],
     lastUpdated: new Date().toISOString(),
     updatedBy: localStorage.getItem('je_userName') || 'Joyce',
   };
@@ -1613,6 +1638,7 @@ async function pullFromCloud(silent) {
     state.lastBudgetMonth = cloud.lastBudgetMonth || state.lastBudgetMonth || '';
     state.lastBillMonth = cloud.lastBillMonth || state.lastBillMonth || '';
     state.spaylaterPurchases = safeArr(cloud.spaylaterPurchases, state.spaylaterPurchases || []);
+    state.completedGoals = safeArr(cloud.completedGoals, state.completedGoals || []);
     saveLocalOnly();
     setSyncStatus('green', 'Synced ✓');
     return true;
@@ -1670,6 +1696,7 @@ function saveLocalOnly() {
   localStorage.setItem('je_lastBudgetMonth', state.lastBudgetMonth || '');
   localStorage.setItem('je_lastBillMonth', state.lastBillMonth || '');
   localStorage.setItem('je_spaylaterPurchases', JSON.stringify(state.spaylaterPurchases || []));
+  localStorage.setItem('je_completedGoals', JSON.stringify(state.completedGoals || []));
 }
 
 function saveState() {
@@ -2164,10 +2191,88 @@ function saveGoalEdit() {
   showToast('✅ Goal updated!');
 }
 
+let _actionGoalId = null;
+
+function showGoalActionModal(goalId) {
+  const g = state.goals.find(g => g.id === goalId);
+  if (!g) return;
+  _actionGoalId = goalId;
+  document.getElementById('goalActionEmoji').textContent = g.emoji || '⭐';
+  document.getElementById('goalActionTitle').textContent = '"' + g.name + '"';
+  const remaining = g.saved || 0;
+  document.getElementById('goalActionSub').textContent =
+    remaining > 0
+      ? fmt(remaining) + ' remaining will be returned to Available Funds 💰'
+      : 'No remaining savings to return';
+  document.getElementById('goalActionModal').style.display = 'flex';
+}
+
+function confirmGoalComplete() {
+  document.getElementById('goalActionModal').style.display = 'none';
+  const g = state.goals.find(g => g.id === _actionGoalId);
+  if (!g) return;
+  const remaining = g.saved || 0;
+  // Return remaining to Available Funds
+  if (remaining > 0) {
+    state.savings = Math.max(0, (state.savings || 0) - remaining);
+    logExpense('✅', 'Goal completed: ' + g.name + ' — ' + fmt(remaining) + ' returned', remaining, 'goalreturn', g.id);
+  }
+  // Move to completedGoals
+  if (!state.completedGoals) state.completedGoals = [];
+  state.completedGoals.unshift({ ...g, completedAt: new Date().toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'}) });
+  state.goals = state.goals.filter(g => g.id !== _actionGoalId);
+  saveState();
+  renderGoals();
+  renderHome();
+  renderIncome();
+  confetti();
+  showToast('✅ ' + g.name + ' marked as completed! 🎊' + (remaining > 0 ? ' ' + fmt(remaining) + ' returned to funds.' : ''));
+  _actionGoalId = null;
+}
+
+function confirmGoalDelete() {
+  document.getElementById('goalActionModal').style.display = 'none';
+  const g = state.goals.find(g => g.id === _actionGoalId);
+  if (!g) return;
+  const remaining = g.saved || 0;
+  if (remaining > 0) {
+    state.savings = Math.max(0, (state.savings || 0) - remaining);
+    logExpense('🗑️', 'Goal deleted: ' + g.name + ' — ' + fmt(remaining) + ' returned', remaining, 'goalreturn', g.id);
+  }
+  state.goals = state.goals.filter(g => g.id !== _actionGoalId);
+  saveState();
+  renderGoals();
+  renderHome();
+  renderIncome();
+  showToast('🗑️ ' + g.name + ' deleted.' + (remaining > 0 ? ' ' + fmt(remaining) + ' returned to Available Funds.' : ''));
+  _actionGoalId = null;
+}
+
 function deleteGoalFromEdit() {
   const id = document.getElementById('editGoalId').value;
   document.getElementById('goalEditModal').style.display = 'none';
-  deleteGoal(id);
+  // Find in active goals
+  if (state.goals.find(g => g.id === id)) {
+    showGoalActionModal(id);
+  } else {
+    // It's a completed goal — just remove it
+    state.completedGoals = (state.completedGoals || []).filter(g => g.id !== id);
+    saveState();
+    renderGoals();
+    showToast('🗑️ Completed goal removed.');
+  }
+}
+
+function deleteGoalFromCompleted(goalId) {
+  if (!confirm('Remove this completed goal from the list?')) return;
+  state.completedGoals = (state.completedGoals || []).filter(g => g.id !== goalId);
+  saveState();
+  renderGoals();
+  showToast('🗑️ Completed goal removed.');
+}
+
+function deleteGoal(goalId) {
+  showGoalActionModal(goalId);
 }
 
 // ============================================================
@@ -4414,8 +4519,27 @@ function renderGoals() {
     list.appendChild(el);
   });
   if (state.goals.length === 0) {
-    list.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">No goals yet — add one! 🌟</div>';
+    list.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">No active goals — add one! 🌟</div>';
   }
+
+  // Render completed goals section
+  const completedCard = document.getElementById('completedGoalsCard');
+  const completedList = document.getElementById('completedGoalsList');
+  const completed = state.completedGoals || [];
+  if (completedCard) completedCard.style.display = completed.length > 0 ? 'block' : 'none';
+  if (completedList) {
+    completedList.innerHTML = completed.map(g => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--border);opacity:0.85;">
+        <div style="font-size:24px;">${g.emoji}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:800;color:var(--text);">${g.name} ✅</div>
+          <div style="font-size:10px;color:var(--muted);">Completed ${g.completedAt || ''} · Target: ${fmt(g.target)}</div>
+        </div>
+        <button onclick="deleteGoalFromCompleted('${g.id}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;font-family:Nunito,sans-serif;">🗑️</button>
+      </div>
+    `).join('');
+  }
+
   renderReliefCountdown();
 }
 
@@ -4661,6 +4785,7 @@ async function initSync() {
         state.otherExpenses = safeArr(cloud.otherExpenses, state.otherExpenses);
         state.spaylaterPurchases = safeArr(cloud.spaylaterPurchases, state.spaylaterPurchases || []);
         state.budgetHistory = safeArr(cloud.budgetHistory, state.budgetHistory || []);
+        state.completedGoals = safeArr(cloud.completedGoals, state.completedGoals || []);
         state.debts = cloud.debts || state.debts;
         state.goals = cloud.goals || state.goals;
         state.bills = cloud.bills || state.bills;
