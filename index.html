@@ -2633,6 +2633,8 @@ let _spTab = 'emil';
 let _spType = 'digital';
 let _pendingBillPayId = null;
 const SPAY_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Seed amounts — baseline from Shopee screenshots. Updated when bills are paid.
 const SPAY_SEED = {
   'b1':31764,'b2':17945,
   'b36':18598,'b39':16858,
@@ -2640,13 +2642,81 @@ const SPAY_SEED = {
   'b38':8401,'b41':8889,
   'b43':2560,'b42':1008,
 };
-const SPAY_BILL_MONTH_MAP = {
-  'b1':  { m:4,  y:2026 }, 'b2':  { m:4,  y:2026 },
-  'b36': { m:5,  y:2026 }, 'b39': { m:5,  y:2026 },
-  'b37': { m:6,  y:2026 }, 'b40': { m:6,  y:2026 },
-  'b38': { m:7,  y:2026 }, 'b41': { m:7,  y:2026 },
-  'b43': { m:8,  y:2026 }, 'b42': { m:8,  y:2026 },
-};
+
+// Dynamic month key for a bill based on its showFromMonth or known base
+function getSpBillMonthKey(bill) {
+  if (!bill) return null;
+  // b1 and b2 are current month bills
+  if (bill.id === 'b1' || bill.id === 'b2') {
+    const now = new Date();
+    return SPAY_MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+  }
+  // For upcoming bills, derive month from showFromMonth (bill appears on 25th of prev month)
+  // showFromMonth is the month index (0-based) of the month BEFORE the bill is due
+  // So the bill is due in showFromMonth + 1
+  if (bill.showFromMonth !== undefined) {
+    const now = new Date();
+    const dueMonth = new Date(now.getFullYear(), bill.showFromMonth + 1, 1);
+    return SPAY_MONTHS[dueMonth.getMonth()] + ' ' + dueMonth.getFullYear();
+  }
+  return null;
+}
+
+// Get all SPayLater bill IDs for an account (existing + any dynamically created ones)
+function getSpBillIds(acc) {
+  if (!state.bills) return [];
+  return state.bills
+    .filter(b => b.category === 'loan' && b.account === acc &&
+      (b.id === 'b1' || b.id === 'b2' || (b.name && b.name.toLowerCase().includes('spaylater'))))
+    .sort((a, b) => {
+      const ma = a.showFromMonth !== undefined ? a.showFromMonth : -1;
+      const mb = b.showFromMonth !== undefined ? b.showFromMonth : -1;
+      return ma - mb;
+    });
+}
+
+// Ensure a bill entry exists for a given month key and account, create if missing
+function ensureSpBillExists(monthKey, acc) {
+  if (!state.bills) return null;
+  const parts = monthKey.split(' ');
+  const mIdx = SPAY_MONTHS.indexOf(parts[0]);
+  const yr = parseInt(parts[1]);
+  if (mIdx === -1 || isNaN(yr)) return null;
+
+  // Check if bill already exists
+  const existing = state.bills.find(b =>
+    b.account === acc && b.category === 'loan' &&
+    b.name && b.name.toLowerCase().includes('spaylater') &&
+    getSpBillMonthKey(b) === monthKey
+  );
+  if (existing) return existing;
+
+  // Create new bill entry
+  const now = new Date();
+  // showFromMonth = month before due month (0-based)
+  const showFromMonth = mIdx === 0 ? 11 : mIdx - 1;
+  const showFromYear = mIdx === 0 ? yr - 1 : yr;
+  const newId = 'sp_bill_' + acc + '_' + yr + '_' + mIdx;
+
+  const newBill = {
+    id: newId,
+    name: 'SPayLater ' + (acc === 'emil' ? 'Emil' : 'Joyce') + ' — ' + parts[0],
+    amount: 0,
+    date: 5,
+    category: 'loan',
+    account: acc,
+    urgent: false,
+    paid: false,
+    showFromDay: 25,
+    showFromMonth: showFromMonth,
+  };
+
+  state.bills.push(newBill);
+  // Add to BILL_DEBT_MAP
+  BILL_DEBT_MAP[newId] = 'spaylater';
+  console.log('✅ Created new SPayLater bill entry: ' + newId + ' for ' + monthKey);
+  return newBill;
+}
 
 function setSPayTab(tab) {
   _spTab = tab;
@@ -2756,52 +2826,94 @@ function autoMarkBillPaid(itemName, amount) {
 
 function recalcSpBills() {
   if (!state.bills) return;
-  // Reset all SPayLater bills to seed amounts
-  Object.entries(SPAY_SEED).forEach(([id, seed]) => {
-    const bill = state.bills.find(b => b.id===id);
-    if (bill) bill.amount = seed;
+
+  // Reset all existing SPayLater bills to their seed amounts (or 0 if paid)
+  state.bills.forEach(b => {
+    if (b.category === 'loan' && b.account && b.name &&
+        b.name.toLowerCase().includes('spaylater')) {
+      if (b.paid) {
+        b.amount = SPAY_SEED[b.id] || 0; // keep seed for reference but paid bills hidden
+      } else {
+        b.amount = SPAY_SEED[b.id] || 0;
+      }
+    }
   });
+  // Also reset b1 and b2
+  ['b1','b2'].forEach(id => {
+    const bill = state.bills.find(b => b.id === id);
+    if (bill && !bill.paid) bill.amount = SPAY_SEED[id] || 0;
+  });
+
   // Add installments from all logged purchases
-  (state.spaylaterPurchases||[]).forEach(p => {
-    p.billMonths.forEach((mKey, idx) => {
-      // Find the bill ID that matches this month key for this account
-      const allIds = p.account==='emil'
-        ? ['b1','b36','b37','b38','b43']
-        : ['b2','b39','b40','b41','b42'];
-      allIds.forEach(id => {
-        const mm = SPAY_BILL_MONTH_MAP[id];
-        if (!mm) return;
-        const key = SPAY_MONTHS[mm.m] + ' ' + mm.y;
-        if (key === mKey) {
-          const bill = state.bills.find(b => b.id===id);
-          if (bill) bill.amount = Math.round((bill.amount + p.installment)*100)/100;
-        }
-      });
+  (state.spaylaterPurchases || []).forEach(p => {
+    p.billMonths.forEach(mKey => {
+      // Ensure bill entry exists for this month/account
+      const bill = ensureSpBillExists(mKey, p.account) ||
+        state.bills.find(b => b.account === p.account && getSpBillMonthKey(b) === mKey) ||
+        state.bills.find(b => (b.id === 'b1' || b.id === 'b2') && b.account === undefined &&
+          p.account === (b.id === 'b1' ? 'emil' : 'joyce') &&
+          getSpBillMonthKey(b) === mKey);
+
+      // Also check b1/b2 directly for current month
+      const currentBillId = p.account === 'emil' ? 'b1' : 'b2';
+      const currentBill = state.bills.find(b => b.id === currentBillId);
+      const now = new Date();
+      const currentMonthKey = SPAY_MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+
+      if (mKey === currentMonthKey && currentBill && !currentBill.paid) {
+        currentBill.amount = Math.round((currentBill.amount + p.installment) * 100) / 100;
+      } else if (bill && !bill.paid) {
+        bill.amount = Math.round((bill.amount + p.installment) * 100) / 100;
+      }
     });
   });
+
+  // Update SPayLater debt balance to reflect total of all unpaid SPayLater bills
+  const spDebt = state.debts?.find(d => d.id === 'spaylater');
+  if (spDebt) {
+    const totalUnpaid = state.bills
+      .filter(b => BILL_DEBT_MAP[b.id] === 'spaylater' && !b.paid && b.amount > 0)
+      .reduce((s, b) => s + b.amount, 0);
+    if (totalUnpaid > 0) spDebt.balance = Math.round(totalUnpaid);
+  }
 }
 
 function renderSpBillProjection() {
   const el = document.getElementById('spBillProjection');
   if (!el) return;
   const acc = _spTab;
-  const ids = [SPAYLATER_BILL_IDS[acc].current, ...SPAYLATER_BILL_IDS[acc].upcoming];
   const now = new Date();
-  const bills = ids.map(id => state.bills?.find(b=>b.id===id)).filter(Boolean);
-  if (!bills.length) { el.innerHTML=''; return; }
+
+  // Get all SPayLater bills for this account, sorted by due month, excluding paid
+  const bills = getSpBillIds(acc).filter(b => !b.paid);
+
+  if (!bills.length) {
+    el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--mint);font-weight:800;font-size:13px;">🎉 All ' + (acc === 'emil' ? 'Emil' : 'Joyce') + '\'s SPayLater bills are paid!</div>';
+    return;
+  }
+
   el.innerHTML = `
     <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
       📅 ${acc==='emil'?'Emil':'Joyce'}'s Bill Forecast
     </div>
     ${bills.map(b => {
-      const mm = SPAY_BILL_MONTH_MAP[b.id];
-      const label = mm ? SPAY_MONTHS[mm.m]+' '+mm.y : SPAY_MONTHS[now.getMonth()]+' '+now.getFullYear();
-      const isCurrent = b.id==='b1'||b.id==='b2';
-      const isVisible = !b.showFromDay || now >= new Date(now.getFullYear(), b.showFromMonth, b.showFromDay);
+      const monthKey = getSpBillMonthKey(b);
+      const currentMonthKey = SPAY_MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+      const isCurrent = monthKey === currentMonthKey;
+      // Calculate show date for visibility
+      let isVisible = true;
+      let showDateStr = '';
+      if (b.showFromDay && b.showFromMonth !== undefined) {
+        const showDate = new Date(now.getFullYear(), b.showFromMonth, b.showFromDay);
+        isVisible = now >= showDate;
+        if (!isVisible) {
+          showDateStr = ' · visible from ' + SPAY_MONTHS[b.showFromMonth] + ' ' + b.showFromDay;
+        }
+      }
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);">
         <div>
-          <div style="font-size:12px;font-weight:800;color:${isCurrent?'var(--pink)':'var(--text)'};">${label} — Due 5th</div>
-          <div style="font-size:10px;color:var(--muted);">${isCurrent?'⚠️ Due now':'📌 Upcoming'}${!isVisible?' · shows May 25':''}  </div>
+          <div style="font-size:12px;font-weight:800;color:${isCurrent?'var(--pink)':'var(--text)'};">${monthKey || 'Unknown'} — Due 5th</div>
+          <div style="font-size:10px;color:var(--muted);">${isCurrent ? '⚠️ Due now' : '📌 Upcoming'}${showDateStr}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="font-family:'Righteous',cursive;font-size:16px;color:${isCurrent?'var(--pink)':'var(--text)'};">${fmt(b.amount)}</div>
@@ -3826,6 +3938,10 @@ function toggleBillPaid(id) {
   if (!bill.paid) {
     bill.paid = true;
     bill.overdueMonth = null; // Clear overdue tag when paid
+    // Reset seed to 0 for paid SPayLater bills so next month starts fresh
+    if (SPAY_SEED[id] !== undefined) {
+      SPAY_SEED[id] = 0;
+    }
     // Deduct from linked debt balance
     if (isDebtBill) {
       const debt = state.debts.find(d => d.id === debtId);
@@ -3839,6 +3955,12 @@ function toggleBillPaid(id) {
     confetti();
   } else {
     bill.paid = false;
+    // Restore seed when unpaied
+    if (SPAY_SEED[id] === 0) {
+      // Restore from original seed values
+      const origSeeds = {'b1':31764,'b2':17945,'b36':18598,'b39':16858,'b37':9414,'b40':16216,'b38':8401,'b41':8889,'b43':2560,'b42':1008};
+      if (origSeeds[id]) SPAY_SEED[id] = origSeeds[id];
+    }
     // Re-add to linked debt balance on undo
     if (isDebtBill) {
       const debt = state.debts.find(d => d.id === debtId);
