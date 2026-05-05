@@ -873,6 +873,13 @@ function doPost(e){
         <input type="number" id="spAmount" placeholder="Amount (₱)" class="modal-input" style="flex:1;font-size:13px;padding:9px 12px;">
         <input type="date" id="spDate" class="modal-input" style="flex:1;font-size:13px;padding:9px 12px;">
       </div>
+      <div style="margin-bottom:6px;">
+        <select id="spTerms" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;font-family:Nunito,sans-serif;color:var(--text);background:white;outline:none;">
+          <option value="1">1 Month — Pay in Full Next Bill</option>
+          <option value="3" selected>3 Months — 0% Installment</option>
+          <option value="6">6 Months — 0% Installment</option>
+        </select>
+      </div>
       <div style="display:flex;gap:6px;margin-bottom:10px;">
         <button onclick="setSpType('mall')" id="sptype_mall" style="flex:1;padding:8px;border-radius:10px;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;background:white;color:var(--muted);">🏬 Mall</button>
         <button onclick="setSpType('nonmall')" id="sptype_nonmall" style="flex:1;padding:8px;border-radius:10px;font-size:11px;font-weight:800;font-family:Nunito,sans-serif;border:2px solid var(--border);cursor:pointer;background:white;color:var(--muted);">🏪 Non-Mall</button>
@@ -2878,11 +2885,12 @@ function addSpaylaterPurchase(itemName, amount, dateStr, type, account, skipForm
   const date  = dateStr   || document.getElementById('spDate')?.value;
   const acc   = account   || _spTab;
   const typ   = type      || _spType;
+  const terms = parseInt(document.getElementById('spTerms')?.value || '3');
   if (!name || isNaN(amt) || amt<=0 || !date) { showToast('Please fill in all fields!'); return; }
 
-  const inst = Math.round((amt/3)*100)/100;
+  const inst = Math.round((amt / terms) * 100) / 100;
   const first = calcSpFirstBillDate(date, typ);
-  const billMonths = [0,1,2].map(i => {
+  const billMonths = Array.from({length: terms}, (_, i) => {
     const mo = new Date(first.getFullYear(), first.getMonth()+i, 1);
     return SPAY_MONTHS[mo.getMonth()] + ' ' + mo.getFullYear();
   });
@@ -2890,7 +2898,7 @@ function addSpaylaterPurchase(itemName, amount, dateStr, type, account, skipForm
   const purchase = {
     id: 'sp_'+Date.now(),
     name, amount:amt, date, type:typ, account:acc,
-    installment:inst, billMonths,
+    terms, installment:inst, billMonths,
     loggedBy: getUserName(),
     loggedAt: new Date().toISOString(),
   };
@@ -2906,6 +2914,7 @@ function addSpaylaterPurchase(itemName, amount, dateStr, type, account, skipForm
     if (document.getElementById('spItemName')) document.getElementById('spItemName').value='';
     if (document.getElementById('spAmount')) document.getElementById('spAmount').value='';
     if (document.getElementById('spDate')) document.getElementById('spDate').value=new Date().toISOString().split('T')[0];
+    if (document.getElementById('spTerms')) document.getElementById('spTerms').value='3';
   }
   saveState();
   renderSpBillProjection();
