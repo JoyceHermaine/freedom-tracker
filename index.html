@@ -1942,7 +1942,11 @@ const EXPENSE_CATEGORY_COLORS = {
   '📌 Other': '#9b8faa',
 };
 
+let _savingExpense = false;
 function addOtherExpense() {
+  if (_savingExpense) return;
+  _savingExpense = true;
+  setTimeout(() => _savingExpense = false, 2000);
   const category = document.getElementById('otherExpenseCategory').value;
   const note = document.getElementById('otherExpenseNote').value.trim();
   const amount = parseFloat(document.getElementById('otherExpenseAmount').value);
@@ -2146,7 +2150,12 @@ function toggleTransferNote() {
   document.getElementById('transferNoteField').style.display = type === 'transfer' ? 'block' : 'none';
 }
 
+let _savingIncome = false;
 function saveIncome() {
+  if (_savingIncome) return;
+  _savingIncome = true;
+  setTimeout(() => _savingIncome = false, 2000); // reset after 2s
+
   const source = document.getElementById('incomeSource').value.trim();
   const amount = parseFloat(document.getElementById('incomeAmount').value);
   if (!source || isNaN(amount)) { showToast('Please fill all fields!'); return; }
@@ -2665,7 +2674,10 @@ function calcSpFirstBillDate(purchaseDateStr, type) {
   return new Date(eff.getFullYear(), eff.getMonth()+offset, 1);
 }
 
+let _savingSP = false;
 function addSpaylaterPurchase(itemName, amount, dateStr, type, account, skipForm) {
+  if (!itemName && _savingSP) return; // only guard manual form submissions
+  if (!itemName) { _savingSP = true; setTimeout(() => _savingSP = false, 2000); }
   const name  = itemName  || (document.getElementById('spItemName')?.value?.trim());
   const amt   = amount    || parseFloat(document.getElementById('spAmount')?.value);
   const date  = dateStr   || document.getElementById('spDate')?.value;
@@ -2967,7 +2979,11 @@ function renderFood() {
   document.getElementById('foodPct').textContent = spent > state.foodBudget ? '⚠️ Over budget by ' + fmt(spent - state.foodBudget) + '!' : fmt(spent) + ' spent of ' + fmt(state.foodBudget) + ' budget 🍱';
 }
 
+let _savingFood = false;
 function addFoodSpend() {
+  if (_savingFood) return;
+  _savingFood = true;
+  setTimeout(() => _savingFood = false, 2000);
   const val = parseFloat(document.getElementById('foodSpendInput').value);
   if (isNaN(val) || val <= 0) return;
   const note = document.getElementById('foodSpendNote').value.trim();
@@ -3009,7 +3025,11 @@ function renderMustang() {
   renderFuelTracker('mustang','mustangBudget','mustangBar','mustangRemaining','mustangPct','Mustang Diesel','⛽');
 }
 
+let _savingAppa = false;
 function addAppaSpend() {
+  if (_savingAppa) return;
+  _savingAppa = true;
+  setTimeout(() => _savingAppa = false, 2000);
   const val = parseFloat(document.getElementById('appaSpendInput').value);
   if (isNaN(val) || val <= 0) return;
   const note = document.getElementById('appaSpendNote').value.trim();
@@ -3021,7 +3041,11 @@ function addAppaSpend() {
   renderAppa();
 }
 
+let _savingMustang = false;
 function addMustangSpend() {
+  if (_savingMustang) return;
+  _savingMustang = true;
+  setTimeout(() => _savingMustang = false, 2000);
   const val = parseFloat(document.getElementById('mustangSpendInput').value);
   if (isNaN(val) || val <= 0) return;
   const note = document.getElementById('mustangSpendNote').value.trim();
