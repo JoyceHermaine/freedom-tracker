@@ -3893,15 +3893,18 @@ function renderBills() {
 
 function makeBillEl(b, cls, daysLeft, isPaid) {
   const _now = new Date();
-  const _today = _now.getDate();
   const _month = _now.getMonth();
   const _year = _now.getFullYear();
-  // Calculate real days left accounting for month rollover
+
+  // Fix overdue: don't roll over to next month if bill is overdue
   const dueThisMonth = new Date(_year, _month, b.date);
   const dueNextMonth = new Date(_year, _month + 1, b.date);
-  const dueDateObj = dueThisMonth >= _now ? dueThisMonth : dueNextMonth;
-  const msLeft = dueDateObj - _now;
-  daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+  const isOverdue = dueThisMonth < _now;
+  const dueDateObj = isOverdue ? dueThisMonth : (dueThisMonth >= _now ? dueThisMonth : dueNextMonth);
+  daysLeft = isOverdue ? 0 : Math.ceil((dueDateObj - _now) / (1000 * 60 * 60 * 24));
+
+  // Correct month label for date box — show actual due month
+  const dueMonthLabel = dueDateObj.toLocaleDateString('en-PH', {month:'short'}).toUpperCase();
   const el = document.createElement('div');
   el.className = 'bill-item';
   if (isPaid) el.style.opacity = '0.75';
@@ -3932,11 +3935,11 @@ function makeBillEl(b, cls, daysLeft, isPaid) {
   el.innerHTML = `
     <div class="bill-date-box ${cls}" style="${isPaid ? 'background:#e8f5e9;color:#4caf7d;' : ''}">
       <div class="bill-date-num">${b.date}</div>
-      <div class="bill-date-mo">${new Date().toLocaleDateString('en-PH', {month:'short'}).toUpperCase()}</div>
+      <div class="bill-date-mo">${dueMonthLabel}</div>
     </div>
     <div class="bill-info" style="flex:1;">
       <div class="bill-name" style="${isPaid ? 'text-decoration:line-through;color:var(--muted);' : ''}">${b.name}</div>
-      <div class="bill-note">${isPaid ? '✅ Paid!' : b.overdueMonth ? `⚠️ Overdue from ${b.overdueMonth}` : daysLeft <= 0 ? '⚠️ Due today!' : daysLeft + ' days left'}</div>
+      <div class="bill-note">${isPaid ? (b.paidViaSPayLater ? '🛍️ Paid via SPayLater' : '✅ Paid!') : b.overdueMonth ? `⚠️ Overdue from ${b.overdueMonth}` : daysLeft <= 0 ? '⚠️ Due today!' : daysLeft + ' days left'}</div>
       ${progressBar}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
