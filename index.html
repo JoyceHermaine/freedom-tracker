@@ -486,6 +486,13 @@
 
 <!-- ===== SETUP OVERLAY ===== -->
 <!-- USER SELECTION OVERLAY -->
+<!-- PULL TO REFRESH INDICATOR -->
+<div id="pullRefreshIndicator" style="position:fixed;top:0;left:0;width:100%;height:60px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff6b9d,#c77dff);z-index:9998;transform:translateY(-60px);transition:transform 0.2s ease;pointer-events:none;">
+  <div id="pullRefreshText" style="color:white;font-size:13px;font-weight:800;font-family:Nunito,sans-serif;display:flex;align-items:center;gap:8px;">
+    <span id="pullRefreshIcon">↓</span> Pull to refresh
+  </div>
+</div>
+
 <div id="userSelectOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#ff6b9d,#c77dff,#74c7e8);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
   <div style="font-size:48px;margin-bottom:12px;">🌸</div>
   <div style="font-family:'Righteous',cursive;font-size:28px;color:white;margin-bottom:6px;text-align:center;">Joyce & Emil</div>
@@ -4219,6 +4226,63 @@ async function initSync() {
     });
   }
 }
+
+// ===================== PULL TO REFRESH =====================
+(function() {
+  let startY = 0;
+  let pulling = false;
+  let refreshing = false;
+  const THRESHOLD = 80;
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!pulling || refreshing) return;
+    const dist = Math.min(e.touches[0].clientY - startY, THRESHOLD + 20);
+    if (dist <= 0) return;
+    const indicator = document.getElementById('pullRefreshIndicator');
+    const icon = document.getElementById('pullRefreshIcon');
+    const text = document.getElementById('pullRefreshText');
+    if (!indicator) return;
+    indicator.style.transform = `translateY(${Math.min(dist - 60, 0)}px)`;
+    if (dist >= THRESHOLD) {
+      icon.textContent = '✓';
+      text.innerHTML = '<span>✓</span> Release to refresh';
+    } else {
+      icon.textContent = '↓';
+      text.innerHTML = '<span>↓</span> Pull to refresh';
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', async e => {
+    if (!pulling || refreshing) return;
+    pulling = false;
+    const dist = e.changedTouches[0].clientY - startY;
+    const indicator = document.getElementById('pullRefreshIndicator');
+    if (dist >= THRESHOLD && !refreshing) {
+      refreshing = true;
+      if (indicator) {
+        indicator.style.transform = 'translateY(0px)';
+        document.getElementById('pullRefreshText').innerHTML = '<span>🔄</span> Syncing...';
+      }
+      await pullFromCloud(false);
+      recalcSpBills();
+      renderAll();
+      showToast('✅ Refreshed from cloud! 🌸');
+      setTimeout(() => {
+        if (indicator) indicator.style.transform = 'translateY(-60px)';
+        refreshing = false;
+      }, 800);
+    } else {
+      if (indicator) indicator.style.transform = 'translateY(-60px)';
+    }
+  }, { passive: true });
+})();
 
 initVerseDots();
 (async () => {
