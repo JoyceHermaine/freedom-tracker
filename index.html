@@ -4580,29 +4580,6 @@ function confirmGoalSpend() {
   showToast(g.emoji + ' ' + fmt(val) + ' spent from ' + g.name + '!');
 }
 
-function deleteGoal(goalId) {
-  const g = state.goals.find(g => g.id === goalId);
-  if (!g) return;
-  const remaining = g.saved || 0;
-  const msg = remaining > 0
-    ? `Delete "${g.name}"?\n\n${fmt(remaining)} remaining savings will be returned to Available Funds.`
-    : `Delete "${g.name}"?`;
-  if (!confirm(msg)) return;
-
-  // Return remaining savings to Available Funds
-  if (remaining > 0) {
-    state.savings = Math.max(0, (state.savings || 0) - remaining);
-    logExpense('↩️', 'Goal deleted: ' + g.name + ' — ' + fmt(remaining) + ' returned', remaining, 'goalreturn', goalId);
-  }
-
-  state.goals = state.goals.filter(g => g.id !== goalId);
-  saveState();
-  renderGoals();
-  renderHome();
-  renderIncome();
-  showToast('🗑️ ' + g.name + ' deleted' + (remaining > 0 ? '. ' + fmt(remaining) + ' returned to Available Funds!' : '!'));
-}
-
 function addToGoal(idx) {
   _addToGoalIdx = idx;
   const g = state.goals[idx];
